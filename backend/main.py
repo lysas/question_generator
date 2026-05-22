@@ -557,7 +557,7 @@ async def query_with_pdf(
         try:
             client = openai.OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
             response = client.chat.completions.create(
-                model="grok-beta",
+                model="grok-3",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2
             )
@@ -609,7 +609,7 @@ async def query_with_pdf(
                     # gpt-4o-mini rates: $0.15/1M input, $0.60/1M output
                     cost = (prompt_tokens * 0.15 + completion_tokens * 0.60) / 1_000_000
                 elif provider_used == "grok":
-                    # grok-beta rates: $5.00/1M input, $15.00/1M output
+                    # grok-3 rates: $3.00/1M input, $15.00/1M output
                     cost = (prompt_tokens * 5.00 + completion_tokens * 15.00) / 1_000_000
                 elif provider_used == "mistral":
                     # mistral-large-latest rates: $2.00/1M input, $6.00/1M output
@@ -852,7 +852,7 @@ async def generate_question(
         try:
             client = openai.OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
             response = client.chat.completions.create(
-                model="grok-beta",
+                model="grok-3",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2
             )
@@ -921,7 +921,7 @@ async def generate_question(
                     # gpt-4o-mini rates: $0.15/1M input, $0.60/1M output
                     cost = (prompt_tokens * 0.15 + completion_tokens * 0.60) / 1_000_000
                 elif provider_used == "grok":
-                    # grok-beta rates: $5.00/1M input, $15.00/1M output
+                    # grok-3 rates: $3.00/1M input, $15.00/1M output
                     cost = (prompt_tokens * 5.00 + completion_tokens * 15.00) / 1_000_000
                 elif provider_used == "mistral":
                     # mistral-large-latest rates: $2.00/1M input, $6.00/1M output
@@ -1076,7 +1076,7 @@ async def generate_grade_questions(
         try:
             client = openai.OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
             response = client.chat.completions.create(
-                model="grok-beta",
+                model="grok-3",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2
             )
