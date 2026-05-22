@@ -468,7 +468,9 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
       const emailPrefix = user?.email ? `${user.email}_` : "";
       const openApiKey = localStorage.getItem(`${emailPrefix}openai_api_key`);
       const geminiApiKey = localStorage.getItem(`${emailPrefix}gemini_api_key`);
-      if (!openApiKey && !geminiApiKey) {
+      const grokApiKey = localStorage.getItem(`${emailPrefix}grok_api_key`);
+      const mistralApiKey = localStorage.getItem(`${emailPrefix}mistral_api_key`);
+      if (!openApiKey && !geminiApiKey && !grokApiKey && !mistralApiKey) {
         showToast("No API key found in settings. The server will use its default key if available.", "info", 5000);
         // Do NOT return — allow the request to proceed using server-side keys
       }
@@ -1258,7 +1260,9 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
       const emailPrefix = user?.email ? `${user.email}_` : "";
       const openApiKey = localStorage.getItem(`${emailPrefix}openai_api_key`);
       const geminiApiKey = localStorage.getItem(`${emailPrefix}gemini_api_key`);
-      if (!openApiKey && !geminiApiKey) {
+      const grokApiKey = localStorage.getItem(`${emailPrefix}grok_api_key`);
+      const mistralApiKey = localStorage.getItem(`${emailPrefix}mistral_api_key`);
+      if (!openApiKey && !geminiApiKey && !grokApiKey && !mistralApiKey) {
         showToast("No API key found in settings. The server will use its default key if available.", "info", 4000);
         // Do NOT return — allow the request to proceed using server-side keys
       }

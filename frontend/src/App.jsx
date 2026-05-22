@@ -217,6 +217,9 @@ const DashboardOverview = ({ user }) => {
   const emailPrefix = user?.email ? `${user.email}_` : "";
   const openApiKeySet = !!(localStorage.getItem(`${emailPrefix}openai_api_key`));
   const geminiApiKeySet = !!(localStorage.getItem(`${emailPrefix}gemini_api_key`));
+  const grokApiKeySet = !!(localStorage.getItem(`${emailPrefix}grok_api_key`));
+  const mistralApiKeySet = !!(localStorage.getItem(`${emailPrefix}mistral_api_key`));
+  const anyApiKeySet = openApiKeySet || geminiApiKeySet || grokApiKeySet || mistralApiKeySet;
 
   useEffect(() => {
     try {
