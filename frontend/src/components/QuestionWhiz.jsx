@@ -58,9 +58,6 @@ const cleanErrorMessage = (rawMsg) => {
       
       if (errorMatch) {
         let errText = errorMatch[1];
-        if (errText.includes("grok-beta")) {
-          return "Model 'grok-beta' not found. This usually happens if you entered an invalid API key (such as placing a Mistral API key into the Groq field).";
-        }
         return errText;
       }
       if (messageMatch) {
@@ -71,10 +68,10 @@ const cleanErrorMessage = (rawMsg) => {
     }
   }
 
-  // Specific check for Groq/Grok model-not-found error
-  if (msg.includes("grok-beta") || msg.includes("grok")) {
-    if (msg.includes("400") || msg.includes("invalid") || msg.includes("not found")) {
-      return "Groq/Grok API Error: Invalid API key or model. Please verify you pasted a valid Groq/Grok key (and did not place a Mistral key in its place).";
+  // Specific check for Groq API errors
+  if (msg.includes("Groq API") || msg.includes("groq")) {
+    if (msg.includes("400") || msg.includes("invalid") || msg.includes("not found") || msg.includes("Incorrect API key")) {
+      return "Groq API Error: Invalid API key. Please make sure you entered a valid Groq key from https://console.groq.com.";
     }
   }
 
@@ -84,7 +81,7 @@ const cleanErrorMessage = (rawMsg) => {
 
   // Clean prefixes
   msg = msg.replace(/^Error code: \d+ - /i, "");
-  msg = msg.replace(/^Grok API call failed: /i, "");
+  msg = msg.replace(/^Groq API call failed: /i, "");
   msg = msg.replace(/^OpenAI API call failed: /i, "");
   msg = msg.replace(/^Gemini API call failed: /i, "");
   msg = msg.replace(/^Mistral API call failed: /i, "");

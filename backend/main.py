@@ -555,16 +555,16 @@ async def query_with_pdf(
     elif provider == "grok":
         provider_used = "grok"
         try:
-            client = openai.OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
+            client = openai.OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
             response = client.chat.completions.create(
-                model="grok-3",
+                model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2
             )
             raw_response_text = response.choices[0].message.content
         except Exception as e:
-            logger.error(f"Grok generation failed: {e}")
-            raise HTTPException(status_code=400, detail=f"Grok API call failed: {str(e)}")
+            logger.error(f"Groq generation failed: {e}")
+            raise HTTPException(status_code=400, detail=f"Groq API call failed: {str(e)}")
     else:
         raise HTTPException(
             status_code=400, 
@@ -609,8 +609,8 @@ async def query_with_pdf(
                     # gpt-4o-mini rates: $0.15/1M input, $0.60/1M output
                     cost = (prompt_tokens * 0.15 + completion_tokens * 0.60) / 1_000_000
                 elif provider_used == "grok":
-                    # grok-3 rates: $3.00/1M input, $15.00/1M output
-                    cost = (prompt_tokens * 5.00 + completion_tokens * 15.00) / 1_000_000
+                    # groq llama-3.3-70b: ~$0.59/1M input, $0.79/1M output
+                    cost = (prompt_tokens * 0.59 + completion_tokens * 0.79) / 1_000_000
                 elif provider_used == "mistral":
                     # mistral-large-latest rates: $2.00/1M input, $6.00/1M output
                     cost = (prompt_tokens * 2.00 + completion_tokens * 6.00) / 1_000_000
@@ -850,16 +850,16 @@ async def generate_question(
     elif provider == "grok":
         provider_used = "grok"
         try:
-            client = openai.OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
+            client = openai.OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
             response = client.chat.completions.create(
-                model="grok-3",
+                model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2
             )
             raw_response_text = response.choices[0].message.content
         except Exception as e:
-            logger.error(f"Grok generation failed: {e}")
-            raise HTTPException(status_code=400, detail=f"Grok API call failed: {str(e)}")
+            logger.error(f"Groq generation failed: {e}")
+            raise HTTPException(status_code=400, detail=f"Groq API call failed: {str(e)}")
     elif provider == "mistral":
         provider_used = "mistral"
         try:
@@ -921,8 +921,8 @@ async def generate_question(
                     # gpt-4o-mini rates: $0.15/1M input, $0.60/1M output
                     cost = (prompt_tokens * 0.15 + completion_tokens * 0.60) / 1_000_000
                 elif provider_used == "grok":
-                    # grok-3 rates: $3.00/1M input, $15.00/1M output
-                    cost = (prompt_tokens * 5.00 + completion_tokens * 15.00) / 1_000_000
+                    # groq llama-3.3-70b: ~$0.59/1M input, $0.79/1M output
+                    cost = (prompt_tokens * 0.59 + completion_tokens * 0.79) / 1_000_000
                 elif provider_used == "mistral":
                     # mistral-large-latest rates: $2.00/1M input, $6.00/1M output
                     cost = (prompt_tokens * 2.00 + completion_tokens * 6.00) / 1_000_000
@@ -1074,15 +1074,15 @@ async def generate_grade_questions(
     elif provider == "grok":
         provider_used = "grok"
         try:
-            client = openai.OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
+            client = openai.OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
             response = client.chat.completions.create(
-                model="grok-3",
+                model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2
             )
             raw_response_text = response.choices[0].message.content
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Grok API failed: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Groq API failed: {str(e)}")
     else:
         raise HTTPException(
             status_code=400, 
