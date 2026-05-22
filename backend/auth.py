@@ -1,19 +1,10 @@
 import os
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
-from dotenv import load_dotenv
-
-# Get the absolute path to the .env file in the backend directory
-backend_dir = os.path.dirname(os.path.abspath(__file__))
-env_path = os.path.join(backend_dir, ".env")
-load_dotenv(dotenv_path=env_path)
-
-# We need the Supabase JWT secret
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
-ALGORITHM = "HS256"
 
 security = HTTPBearer()
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """

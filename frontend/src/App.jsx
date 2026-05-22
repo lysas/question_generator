@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faWandMagicSparkles, 
@@ -15,8 +15,14 @@ import {
   faDatabase,
   faEye,
   faEyeSlash,
-  faTrash
+  faTrash,
+  faShieldHalved,
+  faLock
 } from '@fortawesome/free-solid-svg-icons';
+
+import jsPDF from "jspdf";
+import { Document, Paragraph, TextRun, Packer, Header, Footer, AlignmentType, PageNumber, LineRuleType, ShadingType, Table, TableRow, TableCell, WidthType, HeightRule } from "docx";
+import { saveAs } from "file-saver";
 
 import QuestionWhiz from './components/QuestionWhiz';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
@@ -24,7 +30,13 @@ import { authService } from './components/Authentication/authService';
 
 // Dashboard layout wrapping authenticated pages with the Lysa UI/UX light theme
 const DashboardLayout = ({ children, user, handleLogout }) => {
-  const isActive = (path) => window.location.pathname === path;
+  const location = useLocation();
+  const isActive = (path) => {
+    if (path === '/') {
+      return location.pathname === '/' || location.pathname === '';
+    }
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <div className="d-flex" style={{ minHeight: '100vh', backgroundColor: '#f8fafc', fontFamily: "'Poppins', sans-serif" }}>
@@ -94,6 +106,12 @@ const DashboardLayout = ({ children, user, handleLogout }) => {
               <Link to="/settings" className={`nav-link d-flex align-items-center gap-3 px-3 py-2.5 rounded-3 hover-sidebar ${isActive('/settings') ? 'active-sidebar' : ''}`} style={{ color: '#475569', fontWeight: '500', transition: 'all 0.25s' }}>
                 <FontAwesomeIcon icon={faKey} className={isActive('/settings') ? 'text-primary' : 'text-secondary'} style={{ width: '20px', transition: 'all 0.2s' }} />
                 <span>AI API Keys</span>
+              </Link>
+            </li>
+            <li className="nav-item">
+              <Link to="/terms" className={`nav-link d-flex align-items-center gap-3 px-3 py-2.5 rounded-3 hover-sidebar ${isActive('/terms') ? 'active-sidebar' : ''}`} style={{ color: '#475569', fontWeight: '500', transition: 'all 0.25s' }}>
+                <FontAwesomeIcon icon={faShieldHalved} className={isActive('/terms') ? 'text-primary' : 'text-secondary'} style={{ width: '20px', transition: 'all 0.2s' }} />
+                <span>Terms & Privacy</span>
               </Link>
             </li>
           </ul>
@@ -293,6 +311,10 @@ const DashboardOverview = ({ user }) => {
 const QuizHistory = ({ user }) => {
   const [history, setHistory] = useState([]);
   const [selectedQuiz, setSelectedQuiz] = useState(null);
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [downloadWithOptions, setDownloadWithOptions] = useState(true);
+  const [downloadFormat, setDownloadFormat] = useState("pdf"); // 'pdf' or 'docx'
+  const [quizToDownload, setQuizToDownload] = useState(null);
   const { addNotification } = useNotifications();
   const emailPrefix = user?.email ? `${user.email}_` : "";
 
@@ -319,6 +341,370 @@ const QuizHistory = ({ user }) => {
       setHistory([]);
       localStorage.removeItem(historyKey);
       addNotification("Quiz history cleared.", "info");
+    }
+  };
+
+  const stripOptions = (txt) => {
+    if (!txt) return "";
+    let lines = txt.split("\n");
+    let filteredLines = [];
+    let skipRemaining = false;
+
+    for (let line of lines) {
+      const trimmed = line.trim();
+      const lower = trimmed.toLowerCase();
+
+      // Skip everything after answer key headers
+      if (
+        lower.startsWith("answer:") ||
+        lower.startsWith("answers:") ||
+        lower.startsWith("correct answer:") ||
+        lower.startsWith("correct answers:") ||
+        lower.startsWith("answer key:") ||
+        lower.startsWith("answers key:") ||
+        lower.startsWith("key:")
+      ) {
+        if (lower.includes("key") || lower.includes("answers") || trimmed.endsWith(":") || trimmed.length < 25) {
+          skipRemaining = true;
+          continue;
+        }
+      }
+
+      if (skipRemaining) continue;
+
+      // Skip lines indicating answers or explanations
+      if (
+        lower.startsWith("correct answer") ||
+        lower.startsWith("correct option") ||
+        lower.startsWith("answer:") ||
+        lower.startsWith("explanation:") ||
+        lower.startsWith("explanations:")
+      ) {
+        continue;
+      }
+
+      filteredLines.push(line);
+    }
+    return filteredLines.join("\n");
+  };
+
+  const downloadHistoryPDF = (quiz, withAnswers = true) => {
+    if (!quiz || !quiz.raw_text) return;
+    let text = quiz.raw_text;
+    if (!withAnswers) {
+      text = stripOptions(text);
+    }
+
+    const pdf = new jsPDF({
+      orientation: "p",
+      unit: "mm",
+      format: "a4"
+    });
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    // HEADER
+    const headerBarHeight = 7;
+    const headerCurveRadius = 14;
+    // FOOTER
+    const footerBarHeight = 7;
+    const footerCurveRadius = 20;
+    // Margins
+    const marginX = 0;
+    const marginY = 0;
+    const maxWidth = pageWidth - 2 * 20;
+    const lines = pdf.splitTextToSize(text, maxWidth);
+    const lineHeight = 7;
+    let y = headerBarHeight + 30;
+    let pageNum = 1;
+    const uniqueId = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const currentDate = new Date().toLocaleDateString();
+
+    function drawHeaderFooter(pageNum) {
+      // HEADER: Bold blue bar with right half-circle flush right
+      pdf.setFillColor(26, 90, 255); // #1A5AFF
+      pdf.rect(0, marginY, pageWidth, headerBarHeight, "F");
+      pdf.circle(pageWidth, marginY + headerBarHeight / 2, headerCurveRadius, "F");
+
+      // FOOTER: Thin orange bar with left half-circle flush left
+      pdf.setFillColor(246, 144, 80); // #F69050
+      pdf.circle(0, pageHeight - footerBarHeight / 2, footerCurveRadius, "F");
+      pdf.rect(0, pageHeight - footerBarHeight, pageWidth, footerBarHeight, "F");
+
+      // FOOTER TEXTS (disclaimer, date, website) - above orange line
+      const footerTextY = pageHeight - footerBarHeight - 8;
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(9);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(
+        "Disclaimer: AI-generated papers on Lysa Solutions are for practice only; accuracy isn’t guaranteed—use at your own discretion.",
+        pageWidth / 2,
+        footerTextY,
+        { align: "center" }
+      );
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
+      pdf.text(
+        `Generated on: ${currentDate} | Page ${pageNum} | ID: ${uniqueId}`,
+        footerCurveRadius + 10,
+        footerTextY + 7
+      );
+      pdf.text(
+        "https://lysasolutions.com/",
+        pageWidth - 8,
+        footerTextY + 7,
+        { align: "right" }
+      );
+    }
+
+    function drawWatermark() {
+      pdf.saveGraphicsState();
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(200, 200, 200);
+      pdf.setFontSize(36);
+      pdf.text("LYSA Solutions", pageWidth / 2, pageHeight / 2, null, 45);
+      pdf.restoreGraphicsState();
+    }
+
+    drawHeaderFooter(pageNum);
+    drawWatermark();
+
+    for (let i = 0; i < lines.length; i++) {
+      if (y > pageHeight - footerBarHeight - 25) {
+        pdf.addPage();
+        pageNum++;
+        drawHeaderFooter(pageNum);
+        drawWatermark();
+        y = headerBarHeight + 30;
+      }
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(12);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(lines[i], marginX + headerCurveRadius + 5, y);
+      y += lineHeight;
+    }
+
+    const filename = `${(quiz.topic || "quiz").toLowerCase().replace(/[^a-z0-9]+/g, "_")}_questions.pdf`;
+    pdf.save(filename);
+    addNotification("PDF downloaded successfully!", "success");
+  };
+
+  const downloadHistoryDOCX = (quiz, withAnswers = true) => {
+    if (!quiz || !quiz.raw_text) return;
+    let outputText = quiz.raw_text;
+    if (!withAnswers) {
+      outputText = stripOptions(outputText);
+    }
+    const currentDate = new Date().toLocaleDateString();
+    const uniqueId = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+    try {
+      // Create header with blue bar (table, full width)
+      const header = new Header({
+        children: [
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    shading: {
+                      fill: "1A5AFF",
+                      color: "1A5AFF",
+                      type: ShadingType.SOLID,
+                    },
+                    children: [new Paragraph({ text: " " })],
+                    margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                  }),
+                ],
+                height: { value: 400, rule: HeightRule.EXACT },
+              }),
+            ],
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "LYSA Solutions - Generated Questions",
+                size: 24,
+                bold: true
+              })
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 200, after: 200 }
+          })
+        ]
+      });
+
+      // Create watermark
+      const watermark = new Paragraph({
+        children: [
+          new TextRun({
+            text: "LYSA Solutions",
+            color: "D3D3D3",  // Light gray
+            size: 72,
+            bold: true
+          })
+        ],
+        alignment: AlignmentType.CENTER,
+        floating: {
+          rotation: 315  // 45-degree rotation
+        }
+      });
+
+      // Create footer with disclaimer and orange bar (table, full width)
+      const footer = new Footer({
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "Disclaimer: AI-generated papers on Lysa Solutions are for practice only; accuracy isn't guaranteed—use at your own discretion.",
+                size: 18,
+                italics: true
+              })
+            ],
+            alignment: AlignmentType.LEFT,
+            spacing: { after: 100 }
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Generated on: ${currentDate} | Page `,
+                size: 22
+              }),
+              new TextRun({
+                children: [PageNumber.CURRENT],
+                size: 22
+              }),
+              new TextRun({
+                text: ` | ID: ${uniqueId}`,
+                size: 22
+              }),
+              new TextRun({
+                text: "    https://lysasolutions.com/",
+                size: 22
+              })
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 100 }
+          }),
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    shading: {
+                      fill: "F69050",
+                      color: "F69050",
+                      type: ShadingType.SOLID,
+                    },
+                    children: [new Paragraph({ text: " " })],
+                    margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                  }),
+                ],
+                height: { value: 400, rule: HeightRule.EXACT },
+              }),
+            ],
+          })
+        ]
+      });
+
+      // Process text into questions and options
+      const lines = outputText.split('\n').filter(line => line.trim());
+      const questions = [];
+      let currentQuestion = [];
+
+      lines.forEach(line => {
+        if (line.match(/^\d+\./)) { // This is a question
+          if (currentQuestion.length > 0) {
+            questions.push(currentQuestion);
+          }
+          currentQuestion = [line];
+        } else { // This is an option or continuation of the question
+          currentQuestion.push(line);
+        }
+      });
+      if (currentQuestion.length > 0) {
+        questions.push(currentQuestion);
+      }
+
+      const doc = new Document({
+        sections: [{
+          properties: {
+            page: {
+              margin: {
+                top: 720,     // 0.5 inch
+                right: 720,   // 0.5 inch
+                bottom: 720,  // 0.5 inch
+                left: 720     // 0.5 inch
+              },
+              size: {
+                width: 12240,  // 8.5 inches
+                height: 15840  // 11 inches
+              }
+            }
+          },
+          headers: {
+            default: header
+          },
+          children: [
+            watermark,
+            ...questions.flatMap(questionGroup => {
+              const [question, ...options] = questionGroup;
+              return [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: question,
+                      size: 24,
+                      font: "Helvetica"
+                    })
+                  ],
+                  spacing: { before: 240, after: 240, line: 360, lineRule: LineRuleType.AUTO }
+                }),
+                ...options.map(option =>
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: `    ${option}`,
+                        size: 24,
+                        font: "Helvetica"
+                      })
+                    ],
+                    spacing: { before: 120, after: 120, line: 360, lineRule: LineRuleType.AUTO },
+                    indent: { left: 720 }
+                  })
+                )
+              ];
+            })
+          ],
+          footers: {
+            default: footer
+          }
+        }]
+      });
+
+      Packer.toBlob(doc).then(blob => {
+        const filename = `${(quiz.topic || "quiz").toLowerCase().replace(/[^a-z0-9]+/g, "_")}_questions.docx`;
+        saveAs(blob, filename);
+        addNotification("DOCX downloaded successfully!", "success");
+      });
+    } catch (error) {
+      console.error("DOCX generation error:", error);
+      addNotification("Error generating DOCX file. Please try again.", "error");
+    }
+  };
+
+  const triggerHistoryDownload = () => {
+    setDownloadModalOpen(false);
+    if (!quizToDownload) return;
+    if (downloadFormat === "pdf") {
+      downloadHistoryPDF(quizToDownload, downloadWithOptions);
+    } else {
+      downloadHistoryDOCX(quizToDownload, downloadWithOptions);
     }
   };
 
@@ -460,9 +846,9 @@ const QuizHistory = ({ user }) => {
             </div>
 
             {/* Modal Footer */}
-            <div className="d-flex gap-2 justify-content-end mt-auto pt-3 border-top" style={{ borderColor: 'rgba(0, 0, 0, 0.05)' }}>
+            <div className="d-flex gap-2 justify-content-end mt-auto pt-3 border-top flex-wrap" style={{ borderColor: 'rgba(0, 0, 0, 0.05)' }}>
               <button 
-                className="btn btn-outline-primary rounded-pill px-4" 
+                className="btn btn-outline-secondary rounded-pill px-4" 
                 onClick={() => {
                   navigator.clipboard.writeText(selectedQuiz.raw_text || "");
                   addNotification("Quiz questions copied to clipboard!", "success");
@@ -472,11 +858,158 @@ const QuizHistory = ({ user }) => {
                 Copy to Clipboard
               </button>
               <button 
+                className="btn btn-outline-primary rounded-pill px-4" 
+                onClick={() => {
+                  setQuizToDownload(selectedQuiz);
+                  setDownloadModalOpen(true);
+                }}
+                style={{ fontWeight: '600', transition: 'all 0.2s' }}
+              >
+                Download Paper
+              </button>
+              <button 
                 className="btn btn-primary rounded-pill px-4" 
                 onClick={() => setSelectedQuiz(null)}
                 style={{ backgroundColor: '#1A5AFF', borderColor: '#1A5AFF', fontWeight: '600', transition: 'all 0.2s' }}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Options/Format Selection Modal */}
+      {downloadModalOpen && (
+        <div 
+          className="modal-overlay d-flex align-items-center justify-content-center animate-fade-in"
+          onClick={() => setDownloadModalOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
+          }}
+        >
+          <div 
+            className="card card-custom p-4 shadow-lg border-0 animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '90%',
+              maxWidth: '480px',
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              border: '1px solid rgba(0,0,0,0.05)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Modal Header */}
+            <div className="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4" style={{ borderColor: 'rgba(0, 0, 0, 0.05)' }}>
+              <h4 className="fw-bold mb-0" style={{ color: '#181d38', fontSize: '18px' }}>Download Document</h4>
+              <button 
+                type="button" 
+                className="btn-close shadow-none hover-close" 
+                onClick={() => setDownloadModalOpen(false)}
+                style={{
+                  padding: '8px',
+                  borderRadius: '50%',
+                  transition: 'all 0.2s'
+                }}
+              />
+            </div>
+
+            {/* Modal Body */}
+            <div className="mb-4">
+              {/* Step 1: Options & Answers */}
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748b', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Include Answer Key?</label>
+              <div className="d-flex gap-3 mb-4">
+                <button
+                  type="button"
+                  className="flex-grow-1 p-3 rounded-4 d-flex flex-column align-items-start gap-1 transition-all"
+                  style={{
+                    backgroundColor: downloadWithOptions ? 'rgba(26, 90, 255, 0.05)' : '#ffffff',
+                    border: downloadWithOptions ? '2px solid #1A5AFF' : '1px solid #cbd5e1',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    boxShadow: downloadWithOptions ? '0 4px 12px rgba(26, 90, 255, 0.1)' : 'none'
+                  }}
+                  onClick={() => setDownloadWithOptions(true)}
+                >
+                  <span className="fw-bold" style={{ fontSize: '14px', color: downloadWithOptions ? '#1A5AFF' : '#1e293b' }}>With Answers</span>
+                  <span className="text-secondary" style={{ fontSize: '11px', lineHeight: '1.3' }}>Includes options, correct answers, and final keys.</span>
+                </button>
+                <button
+                  type="button"
+                  className="flex-grow-1 p-3 rounded-4 d-flex flex-column align-items-start gap-1 transition-all"
+                  style={{
+                    backgroundColor: !downloadWithOptions ? 'rgba(26, 90, 255, 0.05)' : '#ffffff',
+                    border: !downloadWithOptions ? '2px solid #1A5AFF' : '1px solid #cbd5e1',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    boxShadow: !downloadWithOptions ? '0 4px 12px rgba(26, 90, 255, 0.1)' : 'none'
+                  }}
+                  onClick={() => setDownloadWithOptions(false)}
+                >
+                  <span className="fw-bold" style={{ fontSize: '14px', color: !downloadWithOptions ? '#1A5AFF' : '#1e293b' }}>Without Answers</span>
+                  <span className="text-secondary" style={{ fontSize: '11px', lineHeight: '1.3' }}>Includes option choices but hides all answers & keys.</span>
+                </button>
+              </div>
+
+              {/* Step 2: Download Format */}
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748b', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Choose Format</label>
+              <div className="d-flex gap-3">
+                <button
+                  type="button"
+                  className="flex-grow-1 p-3 rounded-4 d-flex flex-column align-items-start gap-1 transition-all"
+                  style={{
+                    backgroundColor: downloadFormat === 'pdf' ? 'rgba(26, 90, 255, 0.05)' : '#ffffff',
+                    border: downloadFormat === 'pdf' ? '2px solid #1A5AFF' : '1px solid #cbd5e1',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    boxShadow: downloadFormat === 'pdf' ? '0 4px 12px rgba(26, 90, 255, 0.1)' : 'none'
+                  }}
+                  onClick={() => setDownloadFormat('pdf')}
+                >
+                  <span className="fw-bold" style={{ fontSize: '14px', color: downloadFormat === 'pdf' ? '#1A5AFF' : '#1e293b' }}>PDF Document</span>
+                  <span className="text-secondary" style={{ fontSize: '11px', lineHeight: '1.3' }}>Standard print-ready styled format.</span>
+                </button>
+                <button
+                  type="button"
+                  className="flex-grow-1 p-3 rounded-4 d-flex flex-column align-items-start gap-1 transition-all"
+                  style={{
+                    backgroundColor: downloadFormat === 'docx' ? 'rgba(26, 90, 255, 0.05)' : '#ffffff',
+                    border: downloadFormat === 'docx' ? '2px solid #1A5AFF' : '1px solid #cbd5e1',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    boxShadow: downloadFormat === 'docx' ? '0 4px 12px rgba(26, 90, 255, 0.1)' : 'none'
+                  }}
+                  onClick={() => setDownloadFormat('docx')}
+                >
+                  <span className="fw-bold" style={{ fontSize: '14px', color: downloadFormat === 'docx' ? '#1A5AFF' : '#1e293b' }}>Word (DOCX)</span>
+                  <span className="text-secondary" style={{ fontSize: '11px', lineHeight: '1.3' }}>Fully editable Word file layout.</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="d-flex gap-2 justify-content-end mt-4 pt-3 border-top" style={{ borderColor: 'rgba(0, 0, 0, 0.05)' }}>
+              <button 
+                className="btn btn-outline-secondary rounded-pill px-4" 
+                onClick={() => setDownloadModalOpen(false)}
+                style={{ fontWeight: '600', transition: 'all 0.2s' }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary rounded-pill px-4" 
+                onClick={triggerHistoryDownload}
+                style={{ backgroundColor: '#1A5AFF', borderColor: '#1A5AFF', fontWeight: '600', transition: 'all 0.2s' }}
+              >
+                Download Now
               </button>
             </div>
           </div>
@@ -500,6 +1033,19 @@ const QuizHistory = ({ user }) => {
         .animate-badge {
           animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
         }
+        .animate-fade-in {
+          animation: fadeIn 0.2s ease-out;
+        }
+        .animate-slide-up {
+          animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .transition-all {
+          transition: all 0.2s ease-in-out;
+        }
+        .transition-all:hover {
+          transform: translateY(-2px);
+          border-color: #1A5AFF !important;
+        }
       `}</style>
     </div>
   );
@@ -510,19 +1056,27 @@ const Settings = ({ user }) => {
   const emailPrefix = user?.email ? `${user.email}_` : "";
   const [openaiKey, setOpenaiKey] = useState(localStorage.getItem(`${emailPrefix}openai_api_key`) || "");
   const [geminiKey, setGeminiKey] = useState(localStorage.getItem(`${emailPrefix}gemini_api_key`) || "");
+  const [grokKey, setGrokKey] = useState(localStorage.getItem(`${emailPrefix}grok_api_key`) || "");
+  const [mistralKey, setMistralKey] = useState(localStorage.getItem(`${emailPrefix}mistral_api_key`) || "");
   const [showOpenai, setShowOpenai] = useState(false);
   const [showGemini, setShowGemini] = useState(false);
+  const [showGrok, setShowGrok] = useState(false);
+  const [showMistral, setShowMistral] = useState(false);
   const { addNotification } = useNotifications();
 
   const handleSave = (e) => {
     e.preventDefault();
     const cleanOpenai = openaiKey.trim();
     const cleanGemini = geminiKey.trim();
+    const cleanGrok = grokKey.trim();
+    const cleanMistral = mistralKey.trim();
 
     localStorage.setItem(`${emailPrefix}openai_api_key`, cleanOpenai);
     localStorage.setItem(`${emailPrefix}gemini_api_key`, cleanGemini);
+    localStorage.setItem(`${emailPrefix}grok_api_key`, cleanGrok);
+    localStorage.setItem(`${emailPrefix}mistral_api_key`, cleanMistral);
     
-    if (!cleanOpenai && !cleanGemini) {
+    if (!cleanOpenai && !cleanGemini && !cleanGrok && !cleanMistral) {
       addNotification("Keys cleared. The app will now use the server's default keys.", "info");
     } else {
       addNotification("AI Provider API Keys saved successfully!", "success");
@@ -530,13 +1084,13 @@ const Settings = ({ user }) => {
   };
 
   return (
-    <div className="max-w-xl" style={{ maxWidth: '640px' }}>
+    <div className="max-w-xl" style={{ maxWidth: '640px', animation: 'fadeIn 0.3s ease-out' }}>
       <h2 className="fw-bold mb-1" style={{ color: '#181d38' }}>API Provider Settings</h2>
-      <p className="text-secondary mb-4">Securely configure your own OpenAI or Gemini API Keys. These keys are only stored in your browser local storage.</p>
+      <p className="text-secondary mb-4">Securely configure your own OpenAI, Gemini, Groq, or Mistral API Keys. These keys are only stored in your browser local storage.</p>
 
       <div className="alert alert-warning d-flex align-items-center gap-2 mb-4" style={{ borderRadius: '8px', fontSize: '14px', backgroundColor: '#fff3cd', borderColor: '#ffe69c', color: '#664d03' }}>
         <FontAwesomeIcon icon={faLightbulb} className="text-warning" />
-        <span><strong>At least one API Key</strong> (OpenAI or Gemini) is required to generate quiz papers.</span>
+        <span><strong>At least one API Key</strong> (OpenAI, Gemini, Groq, or Mistral) is required to generate quiz papers.</span>
       </div>
 
       <form onSubmit={handleSave} className="card card-custom p-4">
@@ -557,7 +1111,7 @@ const Settings = ({ user }) => {
             <input 
               type={showOpenai ? "text" : "password"} 
               className="form-control form-control-custom" 
-              placeholder="sk-proj-..." 
+              placeholder="Enter your key" 
               value={openaiKey}
               onChange={(e) => setOpenaiKey(e.target.value)}
               style={{ borderRight: 'none' }}
@@ -596,7 +1150,7 @@ const Settings = ({ user }) => {
             <input 
               type={showGemini ? "text" : "password"} 
               className="form-control form-control-custom" 
-              placeholder="AIzaSy..." 
+              placeholder="Enter your key" 
               value={geminiKey}
               onChange={(e) => setGeminiKey(e.target.value)}
               style={{ borderRight: 'none' }}
@@ -618,8 +1172,191 @@ const Settings = ({ user }) => {
           </div>
         </div>
 
+        <div className="mb-4">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <label className="form-label mb-0 text-secondary small fw-semibold">Groq API Key</label>
+            <a 
+              href="https://console.groq.com/keys" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="btn btn-sm btn-link text-primary small text-decoration-none fw-semibold p-0"
+              style={{ fontSize: '12px' }}
+            >
+              Get Groq Key <FontAwesomeIcon icon={faSignInAlt} size="xs" />
+            </a>
+          </div>
+          <div className="input-group">
+            <input 
+              type={showGrok ? "text" : "password"} 
+              className="form-control form-control-custom" 
+              placeholder="Enter your key" 
+              value={grokKey}
+              onChange={(e) => setGrokKey(e.target.value)}
+              style={{ borderRight: 'none' }}
+            />
+            <button 
+              type="button"
+              className="btn"
+              onClick={() => setShowGrok(!showGrok)}
+              style={{ 
+                borderLeft: 'none', 
+                backgroundColor: '#ffffff', 
+                borderColor: '#ddd',
+                color: '#6c757d',
+                zIndex: 10
+              }}
+            >
+              <FontAwesomeIcon icon={showGrok ? faEyeSlash : faEye} />
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <label className="form-label mb-0 text-secondary small fw-semibold">Mistral API Key</label>
+            <a 
+              href="https://console.mistral.ai/api-keys/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="btn btn-sm btn-link text-primary small text-decoration-none fw-semibold p-0"
+              style={{ fontSize: '12px' }}
+            >
+              Get Mistral Key <FontAwesomeIcon icon={faSignInAlt} size="xs" />
+            </a>
+          </div>
+          <div className="input-group">
+            <input 
+              type={showMistral ? "text" : "password"} 
+              className="form-control form-control-custom" 
+              placeholder="Enter your key" 
+              value={mistralKey}
+              onChange={(e) => setMistralKey(e.target.value)}
+              style={{ borderRight: 'none' }}
+            />
+            <button 
+              type="button"
+              className="btn"
+              onClick={() => setShowMistral(!showMistral)}
+              style={{ 
+                borderLeft: 'none', 
+                backgroundColor: '#ffffff', 
+                borderColor: '#ddd',
+                color: '#6c757d',
+                zIndex: 10
+              }}
+            >
+              <FontAwesomeIcon icon={showMistral ? faEyeSlash : faEye} />
+            </button>
+          </div>
+        </div>
+
         <button type="submit" className="btn btn-primary rounded-pill px-4 shadow-sm w-100 py-2.5 mt-2" style={{ backgroundColor: '#4361ee', borderColor: '#4361ee', fontWeight: '500' }}>Save Settings</button>
       </form>
+
+      <div className="card border-0 p-4 mt-4 shadow-sm" style={{ 
+        borderRadius: '20px', 
+        background: 'linear-gradient(135deg, rgba(26, 90, 255, 0.02) 0%, rgba(26, 90, 255, 0.07) 100%)',
+        border: '1px solid rgba(26, 90, 255, 0.08)',
+      }}>
+        <div className="d-flex align-items-start gap-3">
+          <div className="rounded-circle d-flex align-items-center justify-content-center text-primary mt-1" style={{ 
+            width: '36px', 
+            height: '36px', 
+            backgroundColor: 'rgba(26, 90, 255, 0.1)',
+            flexShrink: 0
+          }}>
+            <FontAwesomeIcon icon={faLock} />
+          </div>
+          <div>
+            <h6 className="fw-bold mb-1" style={{ color: '#1e293b' }}>Privacy & Security Guarantee</h6>
+            <p className="text-secondary small mb-3" style={{ lineHeight: '1.5' }}>
+              Your API keys are stored entirely inside your browser's local memory. We do not store, view, or transmit them to any third-party servers. All transactions are fully encrypted.
+            </p>
+            <Link to="/terms" className="btn btn-sm btn-link text-primary p-0 small fw-bold text-decoration-none hover-underline">
+              View full Terms & Privacy Policy →
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Terms & Conditions / Privacy View
+const TermsAndConditions = () => {
+  return (
+    <div className="max-w-4xl" style={{ maxWidth: '800px', animation: 'fadeIn 0.3s ease-out' }}>
+      <div className="d-flex align-items-center gap-3 mb-2">
+        <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '48px', height: '48px', backgroundColor: 'rgba(26, 90, 255, 0.1)', color: '#1A5AFF' }}>
+          <FontAwesomeIcon icon={faShieldHalved} size="lg" />
+        </div>
+        <div>
+          <h2 className="fw-bold mb-0 text-slate-800" style={{ color: '#1e293b' }}>Terms & Data Privacy</h2>
+          <p className="text-secondary mb-0 small fw-medium">Your data, completely protected. Last updated: May 2026</p>
+        </div>
+      </div>
+      
+      <hr className="my-4" style={{ opacity: 0.08 }} />
+
+      <div className="card card-custom p-4 border-0 shadow-sm mb-4" style={{ borderRadius: '24px', backgroundColor: '#ffffff' }}>
+        <h4 className="fw-bold mb-3 d-flex align-items-center gap-2" style={{ color: '#1A5AFF', fontSize: '18px' }}>
+          <FontAwesomeIcon icon={faLock} className="text-primary" />
+          <span>100% Client-Side API Key Storage</span>
+        </h4>
+        <p className="text-slate-600 mb-4" style={{ lineHeight: '1.6', fontSize: '14.5px' }}>
+          To ensure maximum security and protect your financial credentials, QuestionWhiz implements a decentralized security model. 
+          When you enter your <strong>OpenAI, Gemini, or Grok API Keys</strong>, they are stored <strong>strictly on your local machine</strong> using your browser's encrypted <code>localStorage</code>.
+        </p>
+
+        <div className="row g-3 mb-4">
+          <div className="col-md-6">
+            <div className="p-3 rounded-4" style={{ backgroundColor: '#f0fdf4', border: '1px solid #dcfce7' }}>
+              <div className="fw-bold text-success mb-1 small uppercase tracking-wider" style={{ fontSize: '12px' }}>HOW IT SECURES YOU</div>
+              <ul className="ps-3 mb-0 text-success-emphasis" style={{ fontSize: '13px', lineHeight: '1.5' }}>
+                <li>Keys never touch our databases</li>
+                <li>Keys are never printed in backend logs</li>
+                <li>API calls route dynamically with client-injected headers</li>
+              </ul>
+            </div>
+          </div>
+          <div className="col-md-6">
+            <div className="p-3 rounded-4" style={{ backgroundColor: '#fef2f2', border: '1px solid #fee2e2' }}>
+              <div className="fw-bold text-danger mb-1 small uppercase tracking-wider" style={{ fontSize: '12px' }}>WHAT WE CANNOT DO</div>
+              <ul className="ps-3 mb-0 text-danger-emphasis" style={{ fontSize: '13px', lineHeight: '1.5' }}>
+                <li>We cannot see or view your keys</li>
+                <li>We cannot reuse or share your keys</li>
+                <li>We cannot access your LLM usage logs</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <h4 className="fw-bold mb-3 d-flex align-items-center gap-2 mt-4" style={{ color: '#f69050', fontSize: '18px' }}>
+          <FontAwesomeIcon icon={faDatabase} className="text-warning" />
+          <span>No Persistent Storage of Educational Data</span>
+        </h4>
+        <p className="text-slate-600 mb-4" style={{ lineHeight: '1.6', fontSize: '14.5px' }}>
+          All source text files, images, recordings, or topics that you supply to generate questions are processed in memory and immediately transferred securely to your chosen AI model provider. We do not persist any uploaded course contents or generated quizzes on our backend databases. Your intellectual property remains exclusively yours.
+        </p>
+
+        <h4 className="fw-bold mb-3 d-flex align-items-center gap-2" style={{ color: '#1e293b', fontSize: '18px' }}>
+          <FontAwesomeIcon icon={faBrain} className="text-secondary" />
+          <span>Responsible AI Usage Policy</span>
+        </h4>
+        <p className="text-slate-600 mb-0" style={{ lineHeight: '1.6', fontSize: '14.5px' }}>
+          Since question papers are generated in real-time by advanced generative models (GPT-4o, Gemini-2.5, Grok-beta), they should be reviewed for academic accuracy before formal classroom assessments. You retain full copyright and usage permissions for all questions generated.
+        </p>
+      </div>
+
+      <div className="alert alert-primary d-flex align-items-start gap-3 p-4 border-0" style={{ borderRadius: '20px', backgroundColor: 'rgba(26, 90, 255, 0.05)' }}>
+        <FontAwesomeIcon icon={faLightbulb} className="text-primary mt-1" size="lg" />
+        <div>
+          <h6 className="fw-bold text-primary mb-1">Privacy Guarantee</h6>
+          <p className="mb-0 text-secondary" style={{ fontSize: '13.5px', lineHeight: '1.5' }}>
+            We leverage industry standard secure HTTPS encryption. Your browser directly sends requests containing headers to our server proxy, which streams the context directly to the selected LLM provider and responds with your generated quiz immediately. Zero persistence, absolute privacy.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
@@ -758,6 +1495,7 @@ const App = () => {
                   <Route path="/generator" element={<QuestionWhiz user={user} />} />
                   <Route path="/history" element={<QuizHistory user={user} />} />
                   <Route path="/settings" element={<Settings user={user} />} />
+                  <Route path="/terms" element={<TermsAndConditions />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </DashboardLayout>

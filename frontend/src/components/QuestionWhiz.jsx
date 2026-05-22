@@ -21,7 +21,10 @@ import {
   faCloudUploadAlt,
   faLink,
   faArrowUp,
-  faLightbulb
+  faLightbulb,
+  faExclamationTriangle,
+  faInfoCircle,
+  faCheckCircle
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import jsPDF from "jspdf";
@@ -42,6 +45,53 @@ import { Document, Paragraph, TextRun, Packer, Header, Footer, AlignmentType, Pa
 import { saveAs } from "file-saver";
 //import { authService } from './Authentication/authService';
 //import FeedbackPopup from "./FeedbackPopup";
+
+const cleanErrorMessage = (rawMsg) => {
+  if (!rawMsg) return "An unknown error occurred.";
+  let msg = String(rawMsg);
+
+  // Check if it's a python dict-like string, e.g. "{'code': '...', 'error': '...'}"
+  if (msg.includes("{") && msg.includes("}")) {
+    try {
+      const errorMatch = msg.match(/'error':\s*'([^']+)'/) || msg.match(/"error":\s*"([^"]+)"/);
+      const messageMatch = msg.match(/'message':\s*'([^']+)'/) || msg.match(/"message":\s*"([^"]+)"/);
+      
+      if (errorMatch) {
+        let errText = errorMatch[1];
+        if (errText.includes("grok-beta")) {
+          return "Model 'grok-beta' not found. This usually happens if you entered an invalid API key (such as placing a Mistral API key into the Groq field).";
+        }
+        return errText;
+      }
+      if (messageMatch) {
+        return messageMatch[1];
+      }
+    } catch (e) {
+      // ignore parsing error
+    }
+  }
+
+  // Specific check for Groq/Grok model-not-found error
+  if (msg.includes("grok-beta") || msg.includes("grok")) {
+    if (msg.includes("400") || msg.includes("invalid") || msg.includes("not found")) {
+      return "Groq/Grok API Error: Invalid API key or model. Please verify you pasted a valid Groq/Grok key (and did not place a Mistral key in its place).";
+    }
+  }
+
+  if (msg.includes("api_key") || msg.includes("api key") || msg.includes("unauthorized") || msg.includes("401")) {
+    return "Authentication Error: The API key provided is invalid or expired. Please check your AI API key settings.";
+  }
+
+  // Clean prefixes
+  msg = msg.replace(/^Error code: \d+ - /i, "");
+  msg = msg.replace(/^Grok API call failed: /i, "");
+  msg = msg.replace(/^OpenAI API call failed: /i, "");
+  msg = msg.replace(/^Gemini API call failed: /i, "");
+  msg = msg.replace(/^Mistral API call failed: /i, "");
+  msg = msg.replace(/^Generation failed: /i, "");
+
+  return msg;
+};
 
 const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
   useLayoutEffect(() => {
@@ -93,6 +143,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
   const [learningObj, setlearningObj] = useState("");
   //above......
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
+  const [revealAnswers, setRevealAnswers] = useState(false);
   const [showContent, setShowContent] = useState(true); // Initially set to true to show the content
   const [showTopic, setShowTopic] = useState(false);
   const [activeButton, setActiveButton] = useState(1);
@@ -127,6 +178,9 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
   const [longProcessWarning, setLongProcessWarning] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
   const [toastType, setToastType] = useState("success"); // success, error, info
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [downloadWithOptions, setDownloadWithOptions] = useState(true);
+  const [downloadFormat, setDownloadFormat] = useState("pdf"); // 'pdf' or 'docx'
   const [docMode, setDocMode] = useState("normal"); // 'normal' or 'handwritten'
   const [showLesson, setShowLesson] = useState(false);
   const [courses, setCourses] = useState([]);
@@ -322,8 +376,10 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
     return `${String.fromCharCode(65 + index)}. `;
   };
 
-  const formatPydanticResponse = (data, requestedFormat = "Plain text") => {
+  const formatPydanticResponse = (data, requestedFormat = "Plain text", overrideProvideAnswer = null) => {
     if (!data) return "";
+
+    const activeProvideAnswer = overrideProvideAnswer || provideAnswerValue;
 
     // If data is already a string, just return it
     if (typeof data === 'string') return data;
@@ -357,8 +413,10 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
               return trimmedOpt.startsWith(label) ? `   ${trimmedOpt}` : `   ${label}${trimmedOpt}`;
             }).join('\n') + '\n';
           }
-          if (q.answer) str += `   Answer: ${q.answer}\n`;
-          if (q.explanation) str += `   Explanation: ${q.explanation}\n`;
+          if (activeProvideAnswer !== "No") {
+            if (q.answer) str += `   Answer: ${q.answer}\n`;
+            if (q.explanation) str += `   Explanation: ${q.explanation}\n`;
+          }
           return str;
         }).join('\n');
       }
@@ -373,8 +431,10 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
             return trimmedOpt.startsWith(label) ? `   ${trimmedOpt}` : `   ${label}${trimmedOpt}`;
           }).join('\n') + '\n';
         }
-        if (questionsData.answer) str += `   Answer: ${questionsData.answer}\n`;
-        if (questionsData.explanation) str += `   Explanation: ${questionsData.explanation}\n`;
+        if (activeProvideAnswer !== "No") {
+          if (questionsData.answer) str += `   Answer: ${questionsData.answer}\n`;
+          if (questionsData.explanation) str += `   Explanation: ${questionsData.explanation}\n`;
+        }
         return str;
       }
 
@@ -491,7 +551,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
     } catch (error) {
       console.error("Error using PDF for question generation:", error);
       const errorMsg = error.response?.data?.detail || error.response?.data?.error || error.response?.data?.message || error.message;
-      showToast(`Failed to generate questions: ${errorMsg}`, "error", 6000);
+      showToast(`Failed to generate questions: ${cleanErrorMessage(errorMsg)}`, "error", 6000);
     } finally {
       setIsLoading(false);
     }
@@ -529,9 +589,56 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
     }
   };
 
-  const handleDownloadPDF = () => {
+  const stripOptions = (txt) => {
+    if (!txt) return "";
+    let lines = txt.split("\n");
+    let filteredLines = [];
+    let skipRemaining = false;
+
+    for (let line of lines) {
+      const trimmed = line.trim();
+      const lower = trimmed.toLowerCase();
+
+      // Skip everything after answer key headers
+      if (
+        lower.startsWith("answer:") ||
+        lower.startsWith("answers:") ||
+        lower.startsWith("correct answer:") ||
+        lower.startsWith("correct answers:") ||
+        lower.startsWith("answer key:") ||
+        lower.startsWith("answers key:") ||
+        lower.startsWith("key:")
+      ) {
+        if (lower.includes("key") || lower.includes("answers") || trimmed.endsWith(":") || trimmed.length < 25) {
+          skipRemaining = true;
+          continue;
+        }
+      }
+
+      if (skipRemaining) continue;
+
+      // Skip lines indicating answers or explanations
+      if (
+        lower.startsWith("correct answer") ||
+        lower.startsWith("correct option") ||
+        lower.startsWith("answer:") ||
+        lower.startsWith("explanation:") ||
+        lower.startsWith("explanations:")
+      ) {
+        continue;
+      }
+
+      filteredLines.push(line);
+    }
+    return filteredLines.join("\n");
+  };
+
+  const handleDownloadPDF = (withOptions = true) => {
     const outputTextArea = document.getElementById("output");
-    const text = outputTextArea.value;
+    let text = outputTextArea.value;
+    if (!withOptions) {
+      text = stripOptions(text);
+    }
 
     const pdf = new jsPDF({
       orientation: "p",
@@ -651,8 +758,11 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
       return null;
     }
   };
-  const handleDownloadDOCX = () => {
-    const outputText = document.getElementById("output").value;
+  const handleDownloadDOCX = (withOptions = true) => {
+    let outputText = document.getElementById("output").value;
+    if (!withOptions) {
+      outputText = stripOptions(outputText);
+    }
     const currentDate = new Date().toLocaleDateString();
     const uniqueId = Math.random().toString(36).substring(2, 10).toUpperCase();
 
@@ -1061,7 +1171,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
               detectedSource = "Document Upload";
               break;
             case 4:
-              detectedSource = urlValue ? `Web Link: ${urlValue}` : "Web Link Scraper";
+              detectedSource = similarQuestion ? `Similar: ${similarQuestion.slice(0, 30)}...` : "Similar Question";
               break;
             case 5:
               detectedSource = "Video Upload";
@@ -1079,7 +1189,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
       }
 
       const newHistoryItem = {
-        topic: topicValue || enterTheText?.slice(0, 30) || "General Topic",
+        topic: topicValue || similarQuestion?.slice(0, 30) || enterTheText?.slice(0, 30) || "General Topic",
         type: questionType,
         bloom: bloomValue,
         difficulty: levelValue,
@@ -1098,6 +1208,39 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
       localStorage.setItem(historyKey, JSON.stringify(currentHistory));
     } catch (e) {
       console.error("Failed to save to quiz history:", e);
+    }
+  };
+
+  const playSuccessChime = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const now = ctx.currentTime;
+      
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(659.25, now);
+      gain1.gain.setValueAtTime(0.12, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.5);
+      
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(880.00, now + 0.12);
+      gain2.gain.setValueAtTime(0.12, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.57);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.62);
+    } catch (e) {
+      console.warn("Audio Context chime failed to initialize:", e);
     }
   };
 
@@ -1172,8 +1315,10 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
           }));
           setGeneratedQuestions(questionsWithMeta);
           setOutputText(formatPydanticResponse(response.data, formatValue));
-          addNotification("Questions generated successfully!", "success");
-          showToast("Questions generated successfully!");
+          
+          playSuccessChime();
+          addNotification(`${numQuestionsValue} questions generated successfully! We've loaded them in the viewer below.`, "success");
+          showToast(`${numQuestionsValue} questions generated successfully!`);
         }
         return; // Exit early as we've handled generation
       }
@@ -1287,6 +1432,10 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
           setOutputText(formatPydanticResponse(outerEnvelope, formatValue));
           setGeneratedFromSource(files && files.length > 0 ? `Files (${files.map(f => f.name).join(", ")})` : "Document Upload");
           saveQuizToHistory(outerEnvelope);
+          
+          playSuccessChime();
+          addNotification(`${numQuestionsValue} questions generated successfully! We've loaded them in the viewer below.`, "success");
+          showToast(`${numQuestionsValue} questions generated successfully!`);
         } else {
           console.warn("No data in response:", response.data);
           alert("The backend returned a success response but no data was found. Please check backend logs.");
@@ -1366,10 +1515,14 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
             activeButton === 2 
               ? `Topic (${topicValue || "General"})`
               : activeButton === 4
-                ? `Web Link`
+                ? `Similar Question`
                 : `Provided Text`
           );
           saveQuizToHistory(outerEnvelope);
+          
+          playSuccessChime();
+          addNotification(`${numQuestionsValue} questions generated successfully! We've loaded them in the viewer below.`, "success");
+          showToast(`${numQuestionsValue} questions generated successfully!`);
         }
       }
     } catch (error) {
@@ -1384,7 +1537,8 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
           .toString()
           .toLowerCase();
 
-      const errorMsg = error.response?.data?.detail || error.response?.data?.error || error.response?.data?.message || `Status: ${error.response?.status}`;
+      const rawErrorMsg = error.response?.data?.detail || error.response?.data?.error || error.response?.data?.message || `Status: ${error.response?.status}`;
+      const errorMsg = cleanErrorMessage(rawErrorMsg);
 
       if (error.response) {
         if (error.response.status === 401) {
@@ -1418,7 +1572,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
             7000
           );
         } else {
-          showToast(`An unexpected error occurred. ${error.message || "Please try again later."}`, "error", 6000);
+          showToast(`An unexpected error occurred: ${cleanErrorMessage(error.message) || "Please try again later."}`, "error", 6000);
         }
       }
     }
@@ -1485,21 +1639,20 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
       return <img src={link} className="photos" alt="" />;
     }
   };
+  const triggerDownload = () => {
+    setDownloadModalOpen(false);
+    if (downloadFormat === "pdf") {
+      handleDownloadPDF(downloadWithOptions);
+    } else {
+      handleDownloadDOCX(downloadWithOptions);
+    }
+  };
+
   const handleImageClick = (iconType) => {
     if (iconType === "copy") {
       handleCopyToClipboard();
     } else if (iconType === "download") {
-      // Display options for PDF or DOCX download
-      const downloadOption = window.confirm(
-        "Choose the download format:\nPDF: Click OK\nDOCX: Click Cancel"
-      );
-      if (downloadOption) {
-        // User selected PDF
-        handleDownloadPDF();
-      } else {
-        // User selected DOCX
-        handleDownloadDOCX();
-      }
+      setDownloadModalOpen(true);
     }
   };
 
@@ -1514,11 +1667,11 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
       case 1:
         return "Enter the Text";
       case 2:
-        return topicValue ? `Topic Search: ${topicValue}` : "Topic Input";
+        return "Topic Parameters";
       case 3:
         return "Document Content";
       case 4:
-        return "Web Link Scraper Content";
+        return "Similar Question Input";
       case 5:
         return "Video Transcript Details";
       case 6:
@@ -1538,11 +1691,11 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
       case 1:
         return "The questions generated will be based on the text you provide here";
       case 2:
-        return "Topic active. Enter a topic below to generate questions based on it";
+        return "Topic active. Enter parameters below to generate questions based on it";
       case 3:
         return "Choose files from the source modal to generate questions from documents";
       case 4:
-        return "Enter or select a web link to scrape content from";
+        return "Enter a question here to generate similar questions based on it";
       case 5:
         return "Upload video files to generate questions from their transcripts";
       case 6:
@@ -1565,16 +1718,35 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
           top: '20px',
           right: '50%',
           transform: 'translateX(50%)',
-          backgroundColor: toastType === 'error' ? '#f44336' : toastType === 'info' ? '#2196f3' : '#4caf50',
-          color: 'white',
-          padding: '10px 20px',
-          borderRadius: '5px',
+          backgroundColor: toastType === 'error' ? '#fde8e8' : toastType === 'info' ? '#e1f5fe' : '#e8f5e9',
+          color: toastType === 'error' ? '#c81e1e' : toastType === 'info' ? '#0288d1' : '#2e7d32',
+          border: `1px solid ${toastType === 'error' ? '#f8b4b4' : toastType === 'info' ? '#b3e5fc' : '#a5d6a7'}`,
+          padding: '12px 24px',
+          borderRadius: '8px',
           zIndex: 3000,
-          boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-          fontWeight: '500',
-          whiteSpace: 'nowrap'
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          fontWeight: '550',
+          whiteSpace: 'normal',
+          maxWidth: '650px',
+          width: 'max-content',
+          textAlign: 'left',
+          lineHeight: '1.4',
+          wordBreak: 'break-word',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
         }}>
-          {toastMsg}
+          <FontAwesomeIcon 
+            icon={
+              toastType === 'error' 
+                ? faExclamationTriangle 
+                : toastType === 'info' 
+                  ? faInfoCircle 
+                  : faCheckCircle
+            } 
+            style={{ fontSize: '18px', flexShrink: 0 }}
+          />
+          <span>{toastMsg}</span>
         </div>
       )}
 
@@ -1647,12 +1819,154 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
         <div className="qw-split-text-areas">
           <div className="qw-text-area-card">
             <div className="qw-text-area-label">{getDynamicInputLabel()}</div>
-            <textarea
-              id="text-content"
-              value={enterTheText}
-              onChange={(e) => setEnterTheText(e.target.value)}
-              placeholder={getDynamicInputPlaceholder()}
-            />
+            {activeButton === 2 ? (
+              <div className="qw-topic-grid" style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+                gap: '16px', 
+                padding: '12px 0',
+                width: '100%',
+                maxHeight: '360px',
+                overflowY: 'auto'
+              }}>
+                <div className="forrm-group-quiz" style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#64748b', marginBottom: '6px', textAlign: 'left' }}>Topic</label>
+                  <input
+                    type="text"
+                    value={topicValue}
+                    onChange={(e) => setTopicValue(e.target.value)}
+                    placeholder="Enter the topic"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 14px', 
+                      borderRadius: '8px', 
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1a5aff'}
+                    onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+                  />
+                </div>
+                <div className="forrm-group-quiz" style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#64748b', marginBottom: '6px', textAlign: 'left' }}>Sub topic</label>
+                  <input
+                    type="text"
+                    value={subtopicValue}
+                    onChange={(e) => setSubtopicValue(e.target.value)}
+                    placeholder="Enter the Sub topic"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 14px', 
+                      borderRadius: '8px', 
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1a5aff'}
+                    onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+                  />
+                </div>
+                <div className="forrm-group-quiz" style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#64748b', marginBottom: '6px', textAlign: 'left' }}>Example</label>
+                  <input
+                    type="text"
+                    value={exampleValue}
+                    onChange={(e) => setExampleValue(e.target.value)}
+                    placeholder="Enter the example"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 14px', 
+                      borderRadius: '8px', 
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1a5aff'}
+                    onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+                  />
+                </div>
+                <div className="forrm-group-quiz" style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#64748b', marginBottom: '6px', textAlign: 'left' }}>Concept emphasis</label>
+                  <input
+                    type="text"
+                    value={conceptValue}
+                    onChange={(e) => setConceptValue(e.target.value)}
+                    placeholder="Eg. Classes and objects"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 14px', 
+                      borderRadius: '8px', 
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1a5aff'}
+                    onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+                  />
+                </div>
+                <div className="forrm-group-quiz" style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#64748b', marginBottom: '6px', textAlign: 'left' }}>Constraints</label>
+                  <input
+                    type="text"
+                    value={constraintsValue}
+                    onChange={(e) => setConstraintsValue(e.target.value)}
+                    placeholder="Eg. Avoid questions related"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 14px', 
+                      borderRadius: '8px', 
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1a5aff'}
+                    onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+                  />
+                </div>
+                <div className="forrm-group-quiz" style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', color: '#64748b', marginBottom: '6px', textAlign: 'left' }}>Keywords</label>
+                  <input
+                    type="text"
+                    value={keywordsValue}
+                    onChange={(e) => setKeywordsValue(e.target.value)}
+                    placeholder="Eg. inheritance, polymorphis"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 14px', 
+                      borderRadius: '8px', 
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1a5aff'}
+                    onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+                  />
+                </div>
+              </div>
+            ) : (
+              <textarea
+                id="text-content"
+                value={activeButton === 4 ? similarQuestion : enterTheText}
+                onChange={(e) => {
+                  if (activeButton === 4) setSimilarQuestion(e.target.value);
+                  else setEnterTheText(e.target.value);
+                }}
+                placeholder={getDynamicInputPlaceholder()}
+              />
+            )}
             {files.length > 0 && (
               <div style={{ marginTop: '12px', fontSize: '13px', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {files.map((f, idx) => (
@@ -1666,7 +1980,25 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
           
           <div className="qw-text-area-card" style={{ position: 'relative' }}>
             <div className="qw-text-area-label d-flex justify-content-between align-items-center flex-wrap gap-2">
-              <span>Generated Question</span>
+              <div className="d-flex align-items-center gap-3">
+                <span>Generated Question</span>
+                {provideAnswerValue === "No" && generatedQuestions.length > 0 && (
+                  <label className="d-flex align-items-center gap-2" style={{ cursor: 'pointer', fontSize: '12px', fontWeight: '500', color: '#4361ee', userSelect: 'none', margin: 0 }}>
+                    <input 
+                      type="checkbox" 
+                      checked={revealAnswers} 
+                      onChange={(e) => setRevealAnswers(e.target.checked)}
+                      style={{ 
+                        cursor: 'pointer', 
+                        width: '14px', 
+                        height: '14px', 
+                        accentColor: '#4361ee' 
+                      }} 
+                    />
+                    <span>Reveal Answers</span>
+                  </label>
+                )}
+              </div>
               {outputText && generatedFromSource && (
                 <span style={{ fontSize: '11px', color: '#4361ee', fontWeight: '600', backgroundColor: '#e6ecff', padding: '3px 10px', borderRadius: '12px', letterSpacing: '0.3px' }}>
                   Generated from: {generatedFromSource}
@@ -1676,7 +2008,11 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
             <textarea
               ref={outputRef}
               id="output"
-              value={outputText}
+              value={
+                generatedQuestions && generatedQuestions.length > 0
+                  ? formatPydanticResponse(generatedQuestions, formatValue, revealAnswers ? "Yes" : null)
+                  : outputText
+              }
               readOnly
               placeholder="Generated questions will appear here"
             />
@@ -1684,14 +2020,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
               <FontAwesomeIcon icon={faComment} className="qw-action-icon" onClick={handleFeedback} title="Feedback" />
               {showFeed && <FeedbackPopup onClose={handleClosePopup} />}
               <FontAwesomeIcon icon={faCopy} className="qw-action-icon" onClick={handleCopyToClipboard} title="Copy" />
-              <FontAwesomeIcon icon={faDownload} className="qw-action-icon" onClick={() => setShowPopup(!showPopup)} title="Download" />
-              
-              {showPopup && (
-                <div className="popup" style={{ position: 'absolute', top: 'auto', bottom: '50px', right: '20px', zIndex: 100 }}>
-                  <button type="button" onClick={handleDownloadPDF} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', border: 'none', background: 'transparent', cursor: 'pointer' }}>Download as PDF</button>
-                  <button type="button" onClick={handleDownloadDOCX} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', border: 'none', background: 'transparent', cursor: 'pointer', borderTop: '1px solid #eee' }}>Download as DOCX</button>
-                </div>
-              )}
+              <FontAwesomeIcon icon={faDownload} className="qw-action-icon" onClick={() => setDownloadModalOpen(true)} title="Download" />
             </div>
             {generatedQuestions.length > 0 && onUseQuestion && (
               <div style={{ marginTop: '10px', textAlign: 'right' }}>
@@ -1830,6 +2159,72 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
         </div>
 
         <div className="qw-generate-btn-container">
+          {isLoading && (
+            <div className="qw-loading-banner animate-fade-in mb-3 text-start" style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(67, 97, 238, 0.15)',
+              borderRadius: '20px',
+              padding: '20px 24px',
+              boxShadow: '0 8px 32px rgba(67, 97, 238, 0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '20px',
+              animation: 'pulseGlow 2.5s infinite alternate ease-in-out'
+            }}>
+              <style>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+                @keyframes spinReverse {
+                  0% { transform: rotate(360deg); }
+                  100% { transform: rotate(0deg); }
+                }
+                @keyframes pulseGlow {
+                  0% { box-shadow: 0 8px 32px rgba(67, 97, 238, 0.04); border-color: rgba(67, 97, 238, 0.1); }
+                  100% { box-shadow: 0 8px 32px rgba(67, 97, 238, 0.15); border-color: rgba(67, 97, 238, 0.35); }
+                }
+              `}</style>
+              <div className="qw-loading-spinner-wrapper" style={{ position: 'relative', width: '48px', height: '48px', flexShrink: 0 }}>
+                <div className="qw-loading-spinner-outer" style={{
+                  position: 'absolute',
+                  width: '100%',
+                  height: '100%',
+                  border: '3px solid rgba(67, 97, 238, 0.1)',
+                  borderTopColor: '#4361ee',
+                  borderRadius: '50%',
+                  animation: 'spin 1s infinite linear'
+                }} />
+                <div className="qw-loading-spinner-inner" style={{
+                  position: 'absolute',
+                  width: '70%',
+                  height: '70%',
+                  top: '15%',
+                  left: '15%',
+                  border: '3px solid rgba(246, 144, 80, 0.1)',
+                  borderBottomColor: '#f69050',
+                  borderRadius: '50%',
+                  animation: 'spinReverse 1.5s infinite linear'
+                }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h5 style={{ margin: '0 0 4px 0', fontWeight: '700', color: '#1a202c', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
+                  <span>Generating {numQuestionsValue} Questions</span>
+                  <span className="badge rounded-pill" style={{ backgroundColor: 'rgba(67, 97, 238, 0.15)', color: '#4361ee', fontSize: '11px', fontWeight: '600', padding: '4px 10px' }}>
+                    {parseInt(numQuestionsValue) >= 10 ? 'Batch Process' : 'Active'}
+                  </span>
+                </h5>
+                <p style={{ margin: 0, fontSize: '13.5px', color: '#718096', lineHeight: '1.4' }}>
+                  {parseInt(numQuestionsValue) >= 10 
+                    ? "This will take a few minutes. We will notify you when the work is done." 
+                    : "Crafting your custom educational questions. Please wait..."
+                  }
+                </p>
+              </div>
+            </div>
+          )}
+
           <button type="button" className="qw-generate-btn" onClick={handleGenerate} disabled={isLoading}>
             {isLoading ? 'Generating...' : 'Generate Question'}
           </button>
@@ -1858,6 +2253,143 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
           }
         }}
       />
+
+      {/* Premium Download Options Modal */}
+      {downloadModalOpen && (
+        <div 
+          className="modal-overlay d-flex align-items-center justify-content-center animate-fade-in"
+          onClick={() => setDownloadModalOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
+          }}
+        >
+          <div 
+            className="card card-custom p-4 shadow-lg border-0 animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '90%',
+              maxWidth: '480px',
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              border: '1px solid rgba(0,0,0,0.05)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Modal Header */}
+            <div className="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4" style={{ borderColor: 'rgba(0, 0, 0, 0.05)' }}>
+              <h4 className="fw-bold mb-0" style={{ color: '#181d38', fontSize: '18px' }}>Download Document</h4>
+              <button 
+                type="button" 
+                className="btn-close shadow-none hover-close" 
+                onClick={() => setDownloadModalOpen(false)}
+                style={{
+                  padding: '8px',
+                  borderRadius: '50%',
+                  transition: 'all 0.2s'
+                }}
+              />
+            </div>
+
+            {/* Modal Body */}
+            <div className="mb-4">
+              {/* Step 1: Options & Answers */}
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748b', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Include Answer Key?</label>
+              <div className="d-flex gap-3 mb-4">
+                <button
+                  type="button"
+                  className="flex-grow-1 p-3 rounded-4 d-flex flex-column align-items-start gap-1 transition-all"
+                  style={{
+                    backgroundColor: downloadWithOptions ? 'rgba(26, 90, 255, 0.05)' : '#ffffff',
+                    border: downloadWithOptions ? '2px solid #1A5AFF' : '1px solid #cbd5e1',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    boxShadow: downloadWithOptions ? '0 4px 12px rgba(26, 90, 255, 0.1)' : 'none'
+                  }}
+                  onClick={() => setDownloadWithOptions(true)}
+                >
+                  <span className="fw-bold" style={{ fontSize: '14px', color: downloadWithOptions ? '#1A5AFF' : '#1e293b' }}>With Answers</span>
+                  <span className="text-secondary" style={{ fontSize: '11px', lineHeight: '1.3' }}>Includes options, correct answers, and final keys.</span>
+                </button>
+                <button
+                  type="button"
+                  className="flex-grow-1 p-3 rounded-4 d-flex flex-column align-items-start gap-1 transition-all"
+                  style={{
+                    backgroundColor: !downloadWithOptions ? 'rgba(26, 90, 255, 0.05)' : '#ffffff',
+                    border: !downloadWithOptions ? '2px solid #1A5AFF' : '1px solid #cbd5e1',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    boxShadow: !downloadWithOptions ? '0 4px 12px rgba(26, 90, 255, 0.1)' : 'none'
+                  }}
+                  onClick={() => setDownloadWithOptions(false)}
+                >
+                  <span className="fw-bold" style={{ fontSize: '14px', color: !downloadWithOptions ? '#1A5AFF' : '#1e293b' }}>Without Answers</span>
+                  <span className="text-secondary" style={{ fontSize: '11px', lineHeight: '1.3' }}>Includes option choices but hides all answers & keys.</span>
+                </button>
+              </div>
+
+              {/* Step 2: Download Format */}
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748b', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Choose Format</label>
+              <div className="d-flex gap-3">
+                <button
+                  type="button"
+                  className="flex-grow-1 p-3 rounded-4 d-flex flex-column align-items-start gap-1 transition-all"
+                  style={{
+                    backgroundColor: downloadFormat === 'pdf' ? 'rgba(26, 90, 255, 0.05)' : '#ffffff',
+                    border: downloadFormat === 'pdf' ? '2px solid #1A5AFF' : '1px solid #cbd5e1',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    boxShadow: downloadFormat === 'pdf' ? '0 4px 12px rgba(26, 90, 255, 0.1)' : 'none'
+                  }}
+                  onClick={() => setDownloadFormat('pdf')}
+                >
+                  <span className="fw-bold" style={{ fontSize: '14px', color: downloadFormat === 'pdf' ? '#1A5AFF' : '#1e293b' }}>PDF Document</span>
+                  <span className="text-secondary" style={{ fontSize: '11px', lineHeight: '1.3' }}>Standard print-ready styled format.</span>
+                </button>
+                <button
+                  type="button"
+                  className="flex-grow-1 p-3 rounded-4 d-flex flex-column align-items-start gap-1 transition-all"
+                  style={{
+                    backgroundColor: downloadFormat === 'docx' ? 'rgba(26, 90, 255, 0.05)' : '#ffffff',
+                    border: downloadFormat === 'docx' ? '2px solid #1A5AFF' : '1px solid #cbd5e1',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    boxShadow: downloadFormat === 'docx' ? '0 4px 12px rgba(26, 90, 255, 0.1)' : 'none'
+                  }}
+                  onClick={() => setDownloadFormat('docx')}
+                >
+                  <span className="fw-bold" style={{ fontSize: '14px', color: downloadFormat === 'docx' ? '#1A5AFF' : '#1e293b' }}>Word (DOCX)</span>
+                  <span className="text-secondary" style={{ fontSize: '11px', lineHeight: '1.3' }}>Fully editable Word file layout.</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="d-flex gap-2 justify-content-end mt-4 pt-3 border-top" style={{ borderColor: 'rgba(0, 0, 0, 0.05)' }}>
+              <button 
+                className="btn btn-outline-secondary rounded-pill px-4" 
+                onClick={() => setDownloadModalOpen(false)}
+                style={{ fontWeight: '600', transition: 'all 0.2s' }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary rounded-pill px-4" 
+                onClick={triggerDownload}
+                style={{ backgroundColor: '#1A5AFF', borderColor: '#1A5AFF', fontWeight: '600', transition: 'all 0.2s' }}
+              >
+                Download Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -19,12 +19,20 @@ apiClient.interceptors.request.use(async (config) => {
   // Inject personal AI API Keys from localStorage
   const openApiKey = localStorage.getItem(`${emailPrefix}openai_api_key`);
   const geminiApiKey = localStorage.getItem(`${emailPrefix}gemini_api_key`);
+  const grokApiKey = localStorage.getItem(`${emailPrefix}grok_api_key`);
+  const mistralApiKey = localStorage.getItem(`${emailPrefix}mistral_api_key`);
 
   if (openApiKey && openApiKey.trim() !== "" && openApiKey !== "null") {
     config.headers["X-OpenAI-Key"] = openApiKey;
   }
   if (geminiApiKey && geminiApiKey.trim() !== "" && geminiApiKey !== "null") {
     config.headers["X-Gemini-Key"] = geminiApiKey;
+  }
+  if (grokApiKey && grokApiKey.trim() !== "" && grokApiKey !== "null") {
+    config.headers["X-Grok-Key"] = grokApiKey;
+  }
+  if (mistralApiKey && mistralApiKey.trim() !== "" && mistralApiKey !== "null") {
+    config.headers["X-Mistral-Key"] = mistralApiKey;
   }
 
   return config;

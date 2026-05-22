@@ -138,7 +138,8 @@ class TopicBasedQuestionCreatePromptTemplate:
                 f"11. Never deviate from specified parameters\n"
                 f"12. For each question type, provide appropriate answer format (not just Yes/No)\n"
                 f"13. **STRICT REQUIREMENT: Output ONLY the final valid JSON. Do NOT include any conversational text, explanations, or acknowledgment before or after the JSON.**\n"
-                + (f"14. For MCQ questions, strictly generate options *exactly* as demonstrated in the FORMAT EXAMPLE, using the {option_type_description} style (e.g., A, B, C or 1, 2, 3 or I, II, III or a, b, c) and preserving the exact casing/numbering for options." if question_type == 'MCQ' else "")
+                + (f"14. For MCQ questions, strictly generate options *exactly* as demonstrated in the FORMAT EXAMPLE, using the {option_type_description} style (e.g., A, B, C or 1, 2, 3 or I, II, III or a, b, c) and preserving the exact casing/numbering for options." if question_type == 'MCQ' else "") + "\n"
+                "15. **STRICT REQUIREMENT: Standalone Questions. The generated question(s) MUST be completely self-contained and standalone. They MUST NOT contain references to any external context, passage, text, diagram, or image (e.g., do NOT use phrases like 'According to the passage', 'Based on the text above', 'From the given context', 'As shown in the image/diagram', 'Which of the following is correct based on the provided text...'). The quiz taker will NOT have access to any external passage or text. Therefore, strip any such context-referencing meta-phrases from the question and make the question fully independent and directly answerable.**"
             )
 
             # Define type-specific answer formats

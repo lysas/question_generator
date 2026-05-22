@@ -160,7 +160,8 @@ class QuestionCreatePromptTemplate:
                 "3. Use only the provided text as the source of information.\n"
                 "4. Output must be a valid JSON object with a single top-level key: 'questions'.\n"
                 "5. Each item in 'questions' must have 'question', 'options' (if MCQ), and 'answer' fields.\n"
-                "6. Do not include any conversational text, acknowledgments, or markdown formatting (like ```json) in your response."
+                "6. Do not include any conversational text, acknowledgments, or markdown formatting (like ```json) in your response.\n"
+                "7. **STRICT REQUIREMENT: Standalone Questions. The generated question(s) MUST be completely self-contained and standalone. They MUST NOT contain references to any external context, passage, text, diagram, or image (e.g., do NOT use phrases like 'According to the passage', 'Based on the text above', 'From the given context', 'As shown in the image/diagram', 'Which of the following is correct based on the provided text...'). The quiz taker will NOT have access to any external passage or text. Therefore, strip any such context-referencing meta-phrases from the question and make the question fully independent and directly answerable.**"
             )
 
             # Define type-specific answer formats
