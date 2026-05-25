@@ -108,12 +108,7 @@ const DashboardLayout = ({ children, user, handleLogout }) => {
                 <span>AI API Keys</span>
               </Link>
             </li>
-            <li className="nav-item">
-              <Link to="/terms" className={`nav-link d-flex align-items-center gap-3 px-3 py-2.5 rounded-3 hover-sidebar ${isActive('/terms') ? 'active-sidebar' : ''}`} style={{ color: '#475569', fontWeight: '500', transition: 'all 0.25s' }}>
-                <FontAwesomeIcon icon={faShieldHalved} className={isActive('/terms') ? 'text-primary' : 'text-secondary'} style={{ width: '20px', transition: 'all 0.2s' }} />
-                <span>Terms & Privacy</span>
-              </Link>
-            </li>
+
           </ul>
         </div>
 
@@ -1288,44 +1283,41 @@ const Settings = ({ user }) => {
 // Terms & Conditions / Privacy View
 const TermsAndConditions = () => {
   return (
-    <div className="max-w-4xl" style={{ maxWidth: '800px', animation: 'fadeIn 0.3s ease-out' }}>
-      <div className="d-flex align-items-center gap-3 mb-2">
-        <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '48px', height: '48px', backgroundColor: 'rgba(26, 90, 255, 0.1)', color: '#1A5AFF' }}>
-          <FontAwesomeIcon icon={faShieldHalved} size="lg" />
-        </div>
-        <div>
-          <h2 className="fw-bold mb-0 text-slate-800" style={{ color: '#1e293b' }}>Terms & Data Privacy</h2>
-          <p className="text-secondary mb-0 small fw-medium">Your data, completely protected. Last updated: May 2026</p>
-        </div>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', padding: '40px 20px', display: 'flex', justifyContent: 'center' }}>
+      <div className="terms-page" style={{ width: '100%', maxWidth: '760px', animation: 'fadeIn 0.3s ease-out', fontFamily: "'Poppins', sans-serif", color: '#475569' }}>
+
+      {/* Page Header */}
+      <div className="mb-5">
+        <h2 className="fw-bold mb-1" style={{ color: '#0f172a', fontSize: '26px', letterSpacing: '-0.3px' }}>Terms & Data Privacy</h2>
+        <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>Last updated: May 2026 — QuestionWhiz Standalone Platform</p>
       </div>
-      
-      <hr className="my-4" style={{ opacity: 0.08 }} />
 
-      <div className="card card-custom p-4 border-0 shadow-sm mb-4" style={{ borderRadius: '24px', backgroundColor: '#ffffff' }}>
-        <h4 className="fw-bold mb-3 d-flex align-items-center gap-2" style={{ color: '#1A5AFF', fontSize: '18px' }}>
-          <FontAwesomeIcon icon={faLock} className="text-primary" />
-          <span>100% Client-Side API Key Storage</span>
-        </h4>
-        <p className="text-slate-600 mb-4" style={{ lineHeight: '1.6', fontSize: '14.5px' }}>
-          To ensure maximum security and protect your financial credentials, QuestionWhiz implements a decentralized security model. 
-          When you enter your <strong>OpenAI, Gemini, or Grok API Keys</strong>, they are stored <strong>strictly on your local machine</strong> using your browser's encrypted <code>localStorage</code>.
+      {/* Section 1 */}
+      <div className="mb-4 p-4" style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+        <div className="d-flex align-items-center gap-3 mb-3">
+          <div className="d-flex align-items-center justify-content-center rounded-3" style={{ width: '36px', height: '36px', backgroundColor: '#f1f5f9', flexShrink: 0 }}>
+            <FontAwesomeIcon icon={faLock} style={{ color: '#475569', fontSize: '14px' }} />
+          </div>
+          <h5 className="fw-semibold mb-0" style={{ color: '#0f172a', fontSize: '16px' }}>Client-Side API Key Storage</h5>
+        </div>
+        <p style={{ color: '#475569', fontSize: '14px', lineHeight: '1.75', margin: '0 0 16px 0' }}>
+          To ensure maximum security, QuestionWhiz implements a decentralized security model. When you enter your OpenAI, Gemini, or Groq API Keys, they are stored strictly on your local machine using your browser's <code style={{ backgroundColor: '#f1f5f9', padding: '1px 5px', borderRadius: '4px', fontSize: '13px', color: '#334155' }}>localStorage</code>. They never leave your device or touch our servers.
         </p>
-
-        <div className="row g-3 mb-4">
+        <div className="row g-3">
           <div className="col-md-6">
-            <div className="p-3 rounded-4" style={{ backgroundColor: '#f0fdf4', border: '1px solid #dcfce7' }}>
-              <div className="fw-bold text-success mb-1 small uppercase tracking-wider" style={{ fontSize: '12px' }}>HOW IT SECURES YOU</div>
-              <ul className="ps-3 mb-0 text-success-emphasis" style={{ fontSize: '13px', lineHeight: '1.5' }}>
+            <div className="p-3 rounded-3" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <div className="fw-semibold mb-2" style={{ fontSize: '12px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px' }}>How It Secures You</div>
+              <ul className="mb-0 ps-3" style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.7' }}>
                 <li>Keys never touch our databases</li>
-                <li>Keys are never printed in backend logs</li>
-                <li>API calls route dynamically with client-injected headers</li>
+                <li>Keys are never logged on our backend</li>
+                <li>API calls use client-injected headers only</li>
               </ul>
             </div>
           </div>
           <div className="col-md-6">
-            <div className="p-3 rounded-4" style={{ backgroundColor: '#fef2f2', border: '1px solid #fee2e2' }}>
-              <div className="fw-bold text-danger mb-1 small uppercase tracking-wider" style={{ fontSize: '12px' }}>WHAT WE CANNOT DO</div>
-              <ul className="ps-3 mb-0 text-danger-emphasis" style={{ fontSize: '13px', lineHeight: '1.5' }}>
+            <div className="p-3 rounded-3" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <div className="fw-semibold mb-2" style={{ fontSize: '12px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px' }}>What We Cannot Do</div>
+              <ul className="mb-0 ps-3" style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.7' }}>
                 <li>We cannot see or view your keys</li>
                 <li>We cannot reuse or share your keys</li>
                 <li>We cannot access your LLM usage logs</li>
@@ -1333,32 +1325,42 @@ const TermsAndConditions = () => {
             </div>
           </div>
         </div>
+      </div>
 
-        <h4 className="fw-bold mb-3 d-flex align-items-center gap-2 mt-4" style={{ color: '#f69050', fontSize: '18px' }}>
-          <FontAwesomeIcon icon={faDatabase} className="text-warning" />
-          <span>No Persistent Storage of Educational Data</span>
-        </h4>
-        <p className="text-slate-600 mb-4" style={{ lineHeight: '1.6', fontSize: '14.5px' }}>
-          All source text files, images, recordings, or topics that you supply to generate questions are processed in memory and immediately transferred securely to your chosen AI model provider. We do not persist any uploaded course contents or generated quizzes on our backend databases. Your intellectual property remains exclusively yours.
-        </p>
-
-        <h4 className="fw-bold mb-3 d-flex align-items-center gap-2" style={{ color: '#1e293b', fontSize: '18px' }}>
-          <FontAwesomeIcon icon={faBrain} className="text-secondary" />
-          <span>Responsible AI Usage Policy</span>
-        </h4>
-        <p className="text-slate-600 mb-0" style={{ lineHeight: '1.6', fontSize: '14.5px' }}>
-          Since question papers are generated in real-time by advanced generative models (GPT-4o, Gemini-2.5, Grok-beta), they should be reviewed for academic accuracy before formal classroom assessments. You retain full copyright and usage permissions for all questions generated.
+      {/* Section 2 */}
+      <div className="mb-4 p-4" style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+        <div className="d-flex align-items-center gap-3 mb-3">
+          <div className="d-flex align-items-center justify-content-center rounded-3" style={{ width: '36px', height: '36px', backgroundColor: '#f1f5f9', flexShrink: 0 }}>
+            <FontAwesomeIcon icon={faDatabase} style={{ color: '#475569', fontSize: '14px' }} />
+          </div>
+          <h5 className="fw-semibold mb-0" style={{ color: '#0f172a', fontSize: '16px' }}>No Persistent Storage of Educational Data</h5>
+        </div>
+        <p style={{ color: '#475569', fontSize: '14px', lineHeight: '1.75', margin: 0 }}>
+          All source text files, images, recordings, or topics you supply to generate questions are processed in memory and immediately transferred securely to your chosen AI provider. We do not persist any uploaded course contents or generated quizzes on our backend. Your intellectual property remains exclusively yours.
         </p>
       </div>
 
-      <div className="alert alert-primary d-flex align-items-start gap-3 p-4 border-0" style={{ borderRadius: '20px', backgroundColor: 'rgba(26, 90, 255, 0.05)' }}>
-        <FontAwesomeIcon icon={faLightbulb} className="text-primary mt-1" size="lg" />
-        <div>
-          <h6 className="fw-bold text-primary mb-1">Privacy Guarantee</h6>
-          <p className="mb-0 text-secondary" style={{ fontSize: '13.5px', lineHeight: '1.5' }}>
-            We leverage industry standard secure HTTPS encryption. Your browser directly sends requests containing headers to our server proxy, which streams the context directly to the selected LLM provider and responds with your generated quiz immediately. Zero persistence, absolute privacy.
-          </p>
+      {/* Section 3 */}
+      <div className="mb-4 p-4" style={{ backgroundColor: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+        <div className="d-flex align-items-center gap-3 mb-3">
+          <div className="d-flex align-items-center justify-content-center rounded-3" style={{ width: '36px', height: '36px', backgroundColor: '#f1f5f9', flexShrink: 0 }}>
+            <FontAwesomeIcon icon={faBrain} style={{ color: '#475569', fontSize: '14px' }} />
+          </div>
+          <h5 className="fw-semibold mb-0" style={{ color: '#0f172a', fontSize: '16px' }}>Responsible AI Usage Policy</h5>
         </div>
+        <p style={{ color: '#475569', fontSize: '14px', lineHeight: '1.75', margin: 0 }}>
+          Question papers are generated in real-time by advanced generative models (GPT-4o, Gemini 2.5, Llama 3.3). They should be reviewed for academic accuracy before use in formal assessments. You retain full copyright and usage permissions for all questions generated through this platform.
+        </p>
+      </div>
+
+      {/* Footer Note */}
+      <div className="p-4 rounded-3 d-flex align-items-start gap-3" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+        <FontAwesomeIcon icon={faShieldHalved} style={{ color: '#94a3b8', marginTop: '2px', flexShrink: 0 }} />
+        <p style={{ color: '#64748b', fontSize: '13.5px', lineHeight: '1.65', margin: 0 }}>
+          <strong style={{ color: '#334155' }}>Privacy Guarantee:</strong> All API requests are transmitted over HTTPS. Your browser sends context directly to our secure server proxy, which forwards it to your selected AI provider and streams the response back. Zero data is retained.
+        </p>
+      </div>
+
       </div>
     </div>
   );
@@ -1412,11 +1414,12 @@ const Login = ({ setAuth }) => {
 const Register = ({ setAuth }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (email && password) {
+    if (email && password && agreedToTerms) {
       try {
         const user = await authService.signUp(email, password);
         setAuth(user);
@@ -1443,7 +1446,49 @@ const Register = ({ setAuth }) => {
           <input type="password" required className="form-control form-control-custom" value={password} onChange={e => setPassword(e.target.value)} />
         </div>
 
-        <button type="submit" className="btn btn-primary w-100 rounded-pill py-2 shadow-sm mb-3" style={{ backgroundColor: '#4361ee', borderColor: '#4361ee' }}>Create Account</button>
+        {/* Terms & Conditions Checkbox */}
+        <div className="mb-4 d-flex align-items-start gap-2">
+          <input
+            type="checkbox"
+            id="agreeTerms"
+            checked={agreedToTerms}
+            onChange={e => setAgreedToTerms(e.target.checked)}
+            style={{
+              width: '18px',
+              height: '18px',
+              marginTop: '2px',
+              accentColor: '#4361ee',
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
+          />
+          <label htmlFor="agreeTerms" className="small text-secondary" style={{ cursor: 'pointer', lineHeight: '1.5' }}>
+            I agree to the{' '}
+            <Link
+              to="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary fw-semibold text-decoration-none"
+              style={{ borderBottom: '1px solid #4361ee' }}
+            >
+              Terms and Conditions
+            </Link>
+          </label>
+        </div>
+
+        <button
+          type="submit"
+          className="btn btn-primary w-100 rounded-pill py-2 shadow-sm mb-3"
+          style={{
+            backgroundColor: agreedToTerms ? '#4361ee' : '#a0aec0',
+            borderColor: agreedToTerms ? '#4361ee' : '#a0aec0',
+            cursor: agreedToTerms ? 'pointer' : 'not-allowed',
+            transition: 'background-color 0.3s, border-color 0.3s'
+          }}
+          disabled={!agreedToTerms}
+        >
+          Create Account
+        </button>
         <div className="text-center small text-secondary">
           Already have an account? <Link to="/login" className="text-primary text-decoration-none fw-semibold">Sign In</Link>
         </div>
@@ -1490,6 +1535,7 @@ const App = () => {
         <Routes>
           <Route path="/login" element={<Login setAuth={setUser} />} />
           <Route path="/register" element={<Register setAuth={setUser} />} />
+          <Route path="/terms" element={<TermsAndConditions />} />
           <Route path="/*" element={
             user ? (
               <DashboardLayout user={user} handleLogout={handleLogout}>

@@ -8,6 +8,23 @@
   }
 }
 
+/* ── Terms Page: force all text to neutral, no inherited blue ── */
+.terms-page,
+.terms-page p,
+.terms-page li,
+.terms-page span,
+.terms-page div,
+.terms-page strong,
+.terms-page code,
+.terms-page h2,
+.terms-page h5 {
+  color: inherit !important;
+}
+.terms-page a {
+  color: #475569 !important;
+  text-decoration: none !important;
+}
+
 /* Custom scrollbar for webkit */
 ::-webkit-scrollbar {
   width: 8px;
