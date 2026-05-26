@@ -251,6 +251,11 @@ class GeminiGradingClient:
         self,
         contents: List[Any],
         schema: Dict[str, Any],
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
+        top_k: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
+        stop_sequences: Optional[List[str]] = None,
         call_type_for_logging: str = "structured_call"
     ) -> GenerateResponse:
         """
@@ -261,11 +266,12 @@ class GeminiGradingClient:
         
         # Define the generation config
         config_dict = {
-            "temperature": 0.0,
-            "top_p": None,
-            "top_k": None,
+            "temperature": temperature if temperature is not None else 0.0,
+            "top_p": top_p,
+            "top_k": top_k,
             "candidate_count": 1,
-            "max_output_tokens": 65536,
+            "max_output_tokens": max_output_tokens if max_output_tokens is not None else 65536,
+            "stop_sequences": stop_sequences,
             "response_mime_type": "application/json",
             "response_json_schema": schema,
             "safety_settings": self.safety_settings
@@ -322,6 +328,11 @@ class GeminiGradingClient:
     def generate_text(
         self,
         contents: List[Any],
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
+        top_k: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
+        stop_sequences: Optional[List[str]] = None,
         call_type_for_logging: str = "text_call"
     ) -> GenerateResponse:
         """
@@ -332,11 +343,12 @@ class GeminiGradingClient:
         
         # Define the generation config without JSON schema enforcement
         config_dict = {
-            "temperature": 0.0,
-            "top_p": None,
-            "top_k": None,
+            "temperature": temperature if temperature is not None else 0.0,
+            "top_p": top_p,
+            "top_k": top_k,
             "candidate_count": 1,
-            "max_output_tokens": 65536,
+            "max_output_tokens": max_output_tokens if max_output_tokens is not None else 65536,
+            "stop_sequences": stop_sequences,
             "safety_settings": self.safety_settings
         }
 

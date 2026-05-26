@@ -197,6 +197,69 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
   const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
   const [showSourceDropdown, setShowSourceDropdown] = useState(false);
 
+  // ── Model Settings State ──
+  const MODEL_OPTIONS = {
+    Gemini: ["gemini-2.5-flash", "gemini-flash-lite-latest", "gemini-2.5-pro", "gemini-3-flash-preview"],
+    OpenAI: ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
+    Groq:   ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+    Mistral:["mistral-large-latest", "mistral-small-latest", "open-mixtral-8x22b"],
+  };
+  const [msOrganization, setMsOrganization] = useState("Gemini");
+  const [msModel, setMsModel] = useState("gemini-2.5-flash");
+  const [msTemperature, setMsTemperature] = useState(1);
+  const [msStopSequence, setMsStopSequence] = useState("");
+  const [msMaxOutput, setMsMaxOutput] = useState(1000);
+  const [msAdvancedOpen, setMsAdvancedOpen] = useState(false);
+  const [msTopK, setMsTopK] = useState(2);
+  const [msTopP, setMsTopP] = useState(0.95);
+  const [msOutputLength, setMsOutputLength] = useState(1000);
+  const [msApiKey, setMsApiKey] = useState("");
+
+  // Load API Key when organization changes
+  useLayoutEffect(() => {
+    const keyMap = {
+      Gemini: "gemini_api_key",
+      OpenAI: "openai_api_key",
+      Groq: "grok_api_key",
+      Mistral: "mistral_api_key"
+    };
+    // Note: user and user.email might not be available immediately in this scope, 
+    // so we rely on fetching it directly from authService or localStorage patterns 
+    // as done in apiClient.js
+    const storedUserStr = localStorage.getItem("user");
+    let emailPrefix = "";
+    if (storedUserStr && storedUserStr !== "undefined") {
+      try {
+        const u = JSON.parse(storedUserStr);
+        if (u && u.email) emailPrefix = `${u.email}_`;
+      } catch (e) { }
+    }
+    const storageKey = `${emailPrefix}${keyMap[msOrganization]}`;
+    const savedKey = localStorage.getItem(storageKey);
+    setMsApiKey(savedKey && savedKey !== "null" ? savedKey : "");
+  }, [msOrganization]);
+
+  const handleApiKeyChange = (e) => {
+    const newKey = e.target.value;
+    setMsApiKey(newKey);
+    const keyMap = {
+      Gemini: "gemini_api_key",
+      OpenAI: "openai_api_key",
+      Groq: "grok_api_key",
+      Mistral: "mistral_api_key"
+    };
+    const storedUserStr = localStorage.getItem("user");
+    let emailPrefix = "";
+    if (storedUserStr && storedUserStr !== "undefined") {
+      try {
+        const u = JSON.parse(storedUserStr);
+        if (u && u.email) emailPrefix = `${u.email}_`;
+      } catch (e) { }
+    }
+    const storageKey = `${emailPrefix}${keyMap[msOrganization]}`;
+    localStorage.setItem(storageKey, newKey);
+  };
+
   // Eligibility check for question generation:
   // DOCUMENT — always eligible (uploaded PDF or URL).
   // LINK     — always eligible (external web URL, scrapeable).
@@ -1411,9 +1474,21 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
 
         setLoadingStage("Generating...");
 
+        const modelHeaders = {
+          'X-Selected-Provider': msOrganization,
+          'X-Selected-Api-Key': msApiKey,
+          'X-Selected-Model': msModel,
+          'X-Model-Temperature': msTemperature,
+          'X-Model-Max-Output': msMaxOutput,
+          'X-Model-Stop': msStopSequence || '',
+          'X-Model-Top-K': msTopK,
+          'X-Model-Top-P': msTopP
+        };
+
         const response = await apiClient.post(
           endpoint,
-          formData
+          formData,
+          { headers: modelHeaders }
         );
 
         console.log("Backend Response:", response.data);
@@ -1491,7 +1566,18 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
 
         console.log("Question generation API URL:", url);
 
-        const response = await apiClient.get(url);
+        const modelHeaders = {
+          'X-Selected-Provider': msOrganization,
+          'X-Selected-Api-Key': msApiKey,
+          'X-Selected-Model': msModel,
+          'X-Model-Temperature': msTemperature,
+          'X-Model-Max-Output': msMaxOutput,
+          'X-Model-Stop': msStopSequence || '',
+          'X-Model-Top-K': msTopK,
+          'X-Model-Top-P': msTopP
+        };
+
+        const response = await apiClient.get(url, { headers: modelHeaders });
         console.log("Question generation API Response:", response.data);
 
 
@@ -2054,6 +2140,180 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
               </div>
             )}
           </div>
+        </div>
+        <div className="qw-section">
+          <div className="qw-section-title" style={{ display: 'flex', alignItems: 'center', userSelect: 'none', borderBottom: 'none', marginBottom: '8px' }}>
+            <span>⚙️ Model Settings</span>
+          </div>
+
+          <div className="qw-model-settings-panel">
+            <div className="qw-grid-3">
+              {/* Organization / Provider */}
+              <div className="forrm-group-quiz qw-ms-card">
+                <label>🏢 ORGANIZATION</label>
+                <select
+                  value={msOrganization}
+                  onChange={(e) => {
+                    const org = e.target.value;
+                    setMsOrganization(org);
+                    setMsModel(MODEL_OPTIONS[org][0]);
+                  }}
+                >
+                  {Object.keys(MODEL_OPTIONS).map(org => (
+                    <option key={org} value={org}>{org}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Model */}
+              <div className="forrm-group-quiz qw-ms-card">
+                <label>🤖 MODEL</label>
+                <select value={msModel} onChange={(e) => setMsModel(e.target.value)}>
+                  {(MODEL_OPTIONS[msOrganization] || []).map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* API Key */}
+              <div className="forrm-group-quiz qw-ms-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label style={{ margin: 0 }}>🔑 API KEY</label>
+                  <a
+                    href={
+                      msOrganization === "Gemini" ? "https://aistudio.google.com/app/apikey" :
+                      msOrganization === "OpenAI" ? "https://platform.openai.com/api-keys" :
+                      msOrganization === "Groq" ? "https://console.groq.com/keys" :
+                      "https://console.mistral.ai/api-keys/"
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: '11px', color: 'var(--button-primary, #1a5aff)', textDecoration: 'none', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                    className="qw-api-link"
+                  >
+                    Get {msOrganization} Key ↗
+                  </a>
+                </div>
+                <input
+                  type="password"
+                  placeholder={`Enter ${msOrganization} Key...`}
+                  value={msApiKey}
+                  onChange={handleApiKeyChange}
+                />
+              </div>
+            </div>
+
+            <div className="qw-grid-3">
+              {/* Temperature */}
+              <div className="forrm-group-quiz qw-ms-card">
+                <label>🌡️ TEMPERATURE</label>
+                <div className="qw-slider-row">
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.05"
+                    value={msTemperature}
+                    onChange={(e) => setMsTemperature(Number(e.target.value))}
+                    className="qw-range-slider"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    max="2"
+                    step="0.05"
+                    value={msTemperature}
+                    onChange={(e) => setMsTemperature(Number(e.target.value))}
+                    className="qw-slider-num"
+                  />
+                </div>
+              </div>
+
+              {/* Max Output */}
+              <div className="forrm-group-quiz qw-ms-card">
+                <label>📊 MAX OUTPUT</label>
+                <div className="qw-slider-row">
+                  <input
+                    type="range"
+                    min="100"
+                    max="65536"
+                    step="100"
+                    value={msMaxOutput}
+                    onChange={(e) => setMsMaxOutput(Number(e.target.value))}
+                    className="qw-range-slider"
+                  />
+                  <input
+                    type="number"
+                    min="100"
+                    max="65536"
+                    value={msMaxOutput}
+                    onChange={(e) => setMsMaxOutput(Number(e.target.value))}
+                    className="qw-slider-num"
+                  />
+                </div>
+              </div>
+
+              {/* Advanced Settings Toggle */}
+              <div className="forrm-group-quiz qw-ms-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  className="qw-advanced-toggle"
+                  onClick={() => setMsAdvancedOpen(v => !v)}
+                >
+                  Advanced Settings {msAdvancedOpen ? '▲' : '▼'}
+                </button>
+              </div>
+            </div>
+
+            {/* Advanced Settings (collapsible) */}
+              {msAdvancedOpen && (
+                <div className="qw-grid-3 animate-fade-in" style={{ marginTop: '8px' }}>
+                  <div className="forrm-group-quiz">
+                    <label>Output Length</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="65536"
+                      value={msOutputLength}
+                      onChange={(e) => setMsOutputLength(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="forrm-group-quiz">
+                    <label>Top K</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={msTopK}
+                      onChange={(e) => setMsTopK(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="forrm-group-quiz">
+                    <label>Top P</label>
+                    <div className="qw-slider-row">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={msTopP}
+                        onChange={(e) => setMsTopP(Number(e.target.value))}
+                        className="qw-range-slider"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={msTopP}
+                        onChange={(e) => setMsTopP(Number(e.target.value))}
+                        className="qw-slider-num"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
         </div>
 
         <div className="qw-section">

@@ -102,12 +102,6 @@ const DashboardLayout = ({ children, user, handleLogout }) => {
                 <span>Quiz History</span>
               </Link>
             </li>
-            <li className="nav-item">
-              <Link to="/settings" className={`nav-link d-flex align-items-center gap-3 px-3 py-2.5 rounded-3 hover-sidebar ${isActive('/settings') ? 'active-sidebar' : ''}`} style={{ color: '#475569', fontWeight: '500', transition: 'all 0.25s' }}>
-                <FontAwesomeIcon icon={faKey} className={isActive('/settings') ? 'text-primary' : 'text-secondary'} style={{ width: '20px', transition: 'all 0.2s' }} />
-                <span>AI API Keys</span>
-              </Link>
-            </li>
 
           </ul>
         </div>
@@ -258,14 +252,14 @@ const DashboardOverview = ({ user }) => {
                 </span>
               </div>
             </div>
-            <Link to="/settings" className="btn btn-sm btn-outline-primary px-4 py-2 mt-3" style={{ 
+            <Link to="/generator" className="btn btn-sm btn-outline-primary px-4 py-2 mt-3" style={{ 
               borderRadius: '50px', 
               borderColor: 'rgba(26, 90, 255, 0.2)', 
               color: '#1A5AFF',
               fontWeight: '600',
               transition: 'all 0.2s',
               width: 'fit-content'
-            }}>Manage key</Link>
+            }}>Configure key</Link>
           </div>
         </div>
 
@@ -279,14 +273,14 @@ const DashboardOverview = ({ user }) => {
                 </span>
               </div>
             </div>
-            <Link to="/settings" className="btn btn-sm btn-outline-primary px-4 py-2 mt-3" style={{ 
+            <Link to="/generator" className="btn btn-sm btn-outline-primary px-4 py-2 mt-3" style={{ 
               borderRadius: '50px', 
               borderColor: 'rgba(26, 90, 255, 0.2)', 
               color: '#1A5AFF',
               fontWeight: '600',
               transition: 'all 0.2s',
               width: 'fit-content'
-            }}>Manage key</Link>
+            }}>Configure key</Link>
           </div>
         </div>
       </div>
@@ -1543,7 +1537,6 @@ const App = () => {
                   <Route path="/" element={<DashboardOverview user={user} />} />
                   <Route path="/generator" element={<QuestionWhiz user={user} />} />
                   <Route path="/history" element={<QuizHistory user={user} />} />
-                  <Route path="/settings" element={<Settings user={user} />} />
                   <Route path="/terms" element={<TermsAndConditions />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>

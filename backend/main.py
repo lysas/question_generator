@@ -317,17 +317,43 @@ def is_valid_key(key: Optional[str]) -> bool:
 def get_ai_provider_and_key(
     x_openai_key: Optional[str],
     x_gemini_key: Optional[str],
-    x_grok_key: Optional[str] = None
+    x_grok_key: Optional[str] = None,
+    x_mistral_key: Optional[str] = None,
+    x_selected_provider: Optional[str] = None,
+    x_selected_api_key: Optional[str] = None
 ):
-    # 1. Check header keys first
+    # 1. If provider is explicitly selected, resolve it directly:
+    if x_selected_provider:
+        prov = x_selected_provider.lower().strip()
+        
+        # If an explicit key was sent via Model Settings panel, use it primarily
+        if x_selected_api_key and x_selected_api_key.strip():
+            return prov, x_selected_api_key.strip()
+            
+        if prov == "gemini":
+            key = (x_gemini_key or os.getenv("GEMINI_API_KEY") or "").strip()
+            return "gemini", key if key else None
+        if prov == "openai":
+            key = (x_openai_key or os.getenv("OPENAI_API_KEY") or "").strip()
+            return "openai", key if key else None
+        if prov in ("grok", "groq"):
+            key = (x_grok_key or os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
+            return "grok", key if key else None
+        if prov == "mistral":
+            key = (x_mistral_key or os.getenv("MISTRAL_API_KEY") or "").strip()
+            return "mistral", key if key else None
+
+    # 2. Check header keys first for auto-detect fallback (backward compatibility)
     if is_valid_key(x_grok_key):
         return "grok", x_grok_key.strip()
     if is_valid_key(x_gemini_key):
         return "gemini", x_gemini_key.strip()
     if is_valid_key(x_openai_key):
         return "openai", x_openai_key.strip()
+    if is_valid_key(x_mistral_key):
+        return "mistral", x_mistral_key.strip()
         
-    # 2. Check environment fallback keys
+    # 3. Check environment fallback keys
     env_grok = os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY")
     if is_valid_key(env_grok):
         return "grok", env_grok.strip()
@@ -339,6 +365,10 @@ def get_ai_provider_and_key(
     env_openai = os.getenv("OPENAI_API_KEY")
     if is_valid_key(env_openai):
         return "openai", env_openai.strip()
+
+    env_mistral = os.getenv("MISTRAL_API_KEY")
+    if is_valid_key(env_mistral):
+        return "mistral", env_mistral.strip()
         
     # No valid keys found
     return None, None
@@ -465,9 +495,18 @@ async def query_with_pdf(
     x_openai_key: Optional[str] = Header(None, alias="X-OpenAI-Key"),
     x_gemini_key: Optional[str] = Header(None, alias="X-Gemini-Key"),
     x_grok_key: Optional[str] = Header(None, alias="X-Grok-Key"),
+    x_mistral_key: Optional[str] = Header(None, alias="X-Mistral-Key"),
+    x_selected_provider: Optional[str] = Header(None, alias="X-Selected-Provider"),
+    x_selected_api_key: Optional[str] = Header(None, alias="X-Selected-Api-Key"),
+    x_selected_model: Optional[str] = Header(None, alias="X-Selected-Model"),
+    x_model_temperature: Optional[float] = Header(None, alias="X-Model-Temperature"),
+    x_model_max_output: Optional[int] = Header(None, alias="X-Model-Max-Output"),
+    x_model_stop: Optional[str] = Header(None, alias="X-Model-Stop"),
+    x_model_top_k: Optional[int] = Header(None, alias="X-Model-Top-K"),
+    x_model_top_p: Optional[float] = Header(None, alias="X-Model-Top-P"),
     token_payload: dict = Depends(verify_token)
 ):
-    provider, api_key = get_ai_provider_and_key(x_openai_key, x_gemini_key, x_grok_key)
+    provider, api_key = get_ai_provider_and_key(x_openai_key, x_gemini_key, x_grok_key, x_mistral_key, x_selected_provider, x_selected_api_key)
     if not provider:
         raise HTTPException(
             status_code=400,
@@ -525,12 +564,37 @@ async def query_with_pdf(
     # 3. Generate questions with the configured LLM
     raw_response_text = ""
     provider_used = ""
+    
+    # Process common OpenAI-like parameters
+    openai_params = {
+        "temperature": x_model_temperature if x_model_temperature is not None else 0.2,
+        "max_tokens": x_model_max_output,
+        "top_p": x_model_top_p
+    }
+    # Only add stop if it's a non-empty string
+    if x_model_stop and isinstance(x_model_stop, str) and x_model_stop.strip():
+        openai_params["stop"] = [x_model_stop.strip()]
+    
+    # Remove None values
+    openai_params = {k: v for k, v in openai_params.items() if v is not None}
 
     if provider == "gemini":
         provider_used = "gemini"
         try:
-            client = GeminiGradingClient(api_key=api_key, model_name="gemini-flash-lite-latest")
-            resp = client.generate_text(contents=prompt)
+            model_name = x_selected_model if x_selected_model else "gemini-flash-lite-latest"
+            client = GeminiGradingClient(api_key=api_key, model_name=model_name)
+            
+            gemini_kwargs = {
+                "contents": prompt,
+                "temperature": x_model_temperature,
+                "max_output_tokens": x_model_max_output,
+                "top_p": x_model_top_p,
+                "top_k": x_model_top_k
+            }
+            if x_model_stop and x_model_stop.strip():
+                gemini_kwargs["stop_sequences"] = [x_model_stop.strip()]
+                
+            resp = client.generate_text(**{k: v for k, v in gemini_kwargs.items() if v is not None})
             if resp.error:
                 raise Exception(resp.error)
             raw_response_text = resp.response
@@ -542,10 +606,11 @@ async def query_with_pdf(
         provider_used = "openai"
         try:
             client = openai.OpenAI(api_key=api_key)
+            model_name = x_selected_model if x_selected_model else "gpt-4o-mini"
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=model_name,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.2
+                **openai_params
             )
             raw_response_text = response.choices[0].message.content
         except Exception as e:
@@ -556,15 +621,30 @@ async def query_with_pdf(
         provider_used = "grok"
         try:
             client = openai.OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+            model_name = x_selected_model if x_selected_model else "llama-3.3-70b-versatile"
             response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model=model_name,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.2
+                **openai_params
             )
             raw_response_text = response.choices[0].message.content
         except Exception as e:
             logger.error(f"Groq generation failed: {e}")
             raise HTTPException(status_code=400, detail=f"Groq API call failed: {str(e)}")
+    elif provider == "mistral":
+        provider_used = "mistral"
+        try:
+            client = openai.OpenAI(api_key=api_key, base_url="https://api.mistral.ai/v1")
+            model_name = x_selected_model if x_selected_model else "mistral-large-latest"
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                **openai_params
+            )
+            raw_response_text = response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"Mistral generation failed: {e}")
+            raise HTTPException(status_code=400, detail=f"Mistral API call failed: {str(e)}")
     else:
         raise HTTPException(
             status_code=400, 
@@ -772,6 +852,14 @@ async def generate_question(
     x_gemini_key: Optional[str] = Header(None, alias="X-Gemini-Key"),
     x_grok_key: Optional[str] = Header(None, alias="X-Grok-Key"),
     x_mistral_key: Optional[str] = Header(None, alias="X-Mistral-Key"),
+    x_selected_provider: Optional[str] = Header(None, alias="X-Selected-Provider"),
+    x_selected_api_key: Optional[str] = Header(None, alias="X-Selected-Api-Key"),
+    x_selected_model: Optional[str] = Header(None, alias="X-Selected-Model"),
+    x_model_temperature: Optional[float] = Header(None, alias="X-Model-Temperature"),
+    x_model_max_output: Optional[int] = Header(None, alias="X-Model-Max-Output"),
+    x_model_stop: Optional[str] = Header(None, alias="X-Model-Stop"),
+    x_model_top_k: Optional[int] = Header(None, alias="X-Model-Top-K"),
+    x_model_top_p: Optional[float] = Header(None, alias="X-Model-Top-P"),
     token_payload: dict = Depends(verify_token)
 ):
     # 1. Build prompt based on mode
@@ -804,17 +892,38 @@ async def generate_question(
     raw_response_text = ""
     provider_used = ""
     
-    provider, api_key = get_ai_provider_and_key(x_openai_key, x_gemini_key, x_grok_key)
-    # Mistral key overrides if provided
-    if not provider and x_mistral_key:
-        provider = "mistral"
-        api_key = x_mistral_key
+    provider, api_key = get_ai_provider_and_key(x_openai_key, x_gemini_key, x_grok_key, x_mistral_key, x_selected_provider, x_selected_api_key)
     
+    # Process common OpenAI-like parameters
+    openai_params = {
+        "temperature": x_model_temperature if x_model_temperature is not None else 0.2,
+        "max_tokens": x_model_max_output,
+        "top_p": x_model_top_p
+    }
+    # Only add stop if it's a non-empty string
+    if x_model_stop and isinstance(x_model_stop, str) and x_model_stop.strip():
+        openai_params["stop"] = [x_model_stop.strip()]
+    
+    # Remove None values
+    openai_params = {k: v for k, v in openai_params.items() if v is not None}
+
     if provider == "gemini":
         provider_used = "gemini"
         try:
-            client = GeminiGradingClient(api_key=api_key, model_name="gemini-flash-lite-latest")
-            resp = client.generate_text(contents=prompt)
+            model_name = x_selected_model if x_selected_model else "gemini-flash-lite-latest"
+            client = GeminiGradingClient(api_key=api_key, model_name=model_name)
+            
+            gemini_kwargs = {
+                "contents": prompt,
+                "temperature": x_model_temperature,
+                "max_output_tokens": x_model_max_output,
+                "top_p": x_model_top_p,
+                "top_k": x_model_top_k
+            }
+            if x_model_stop and x_model_stop.strip():
+                gemini_kwargs["stop_sequences"] = [x_model_stop.strip()]
+                
+            resp = client.generate_text(**{k: v for k, v in gemini_kwargs.items() if v is not None})
             if resp.error:
                 raise Exception(resp.error)
             raw_response_text = resp.response
@@ -823,7 +932,8 @@ async def generate_question(
             if "loop detection" in err_msg or "content blocked" in err_msg:
                 logger.warning("Gemini loop detection triggered – retrying with ignore tag")
                 try:
-                    resp = client.generate_text(contents="[ignoring loop detection] " + prompt)
+                    gemini_kwargs["contents"] = "[ignoring loop detection] " + prompt
+                    resp = client.generate_text(**{k: v for k, v in gemini_kwargs.items() if v is not None})
                     if resp.error:
                         raise Exception(resp.error)
                     raw_response_text = resp.response
@@ -837,10 +947,11 @@ async def generate_question(
         provider_used = "openai"
         try:
             client = openai.OpenAI(api_key=api_key)
+            model_name = x_selected_model if x_selected_model else "gpt-4o-mini"
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=model_name,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.2
+                **openai_params
             )
             raw_response_text = response.choices[0].message.content
         except Exception as e:
@@ -851,10 +962,11 @@ async def generate_question(
         provider_used = "grok"
         try:
             client = openai.OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+            model_name = x_selected_model if x_selected_model else "llama-3.3-70b-versatile"
             response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model=model_name,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.2
+                **openai_params
             )
             raw_response_text = response.choices[0].message.content
         except Exception as e:
@@ -864,11 +976,11 @@ async def generate_question(
         provider_used = "mistral"
         try:
             client = openai.OpenAI(api_key=api_key, base_url="https://api.mistral.ai/v1")
-            # Using Mistral's latest model (adjust if needed)
+            model_name = x_selected_model if x_selected_model else "mistral-large-latest"
             response = client.chat.completions.create(
-                model="mistral-large-latest",
+                model=model_name,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.2
+                **openai_params
             )
             raw_response_text = response.choices[0].message.content
         except Exception as e:
