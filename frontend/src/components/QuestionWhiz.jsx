@@ -123,6 +123,15 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
   }, []);
 
   const { addNotification } = useNotifications();
+  const getDisplayName = () => {
+    if (user?.user_metadata?.full_name) return user.user_metadata.full_name;
+    if (user?.user_metadata?.name) return user.user_metadata.name;
+    if (user?.email) {
+      const parts = user.email.split('@')[0];
+      return parts.split(/[._-]/).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+    }
+    return 'User';
+  };
   const [questionType, setQuestionType] = useState("MCQ");
   const [outputText, setOutputText] = useState("");
   const [additionalValues, setAdditionalValues] = useState("");
@@ -1522,8 +1531,8 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
           saveQuizToHistory(outerEnvelope);
           
           playSuccessChime();
-          addNotification(`${numQuestionsValue} questions generated successfully! We've loaded them in the viewer below.`, "success");
-          showToast(`${numQuestionsValue} questions generated successfully!`);
+          const qCount = parseInt(numQuestionsValue) || 1;
+          showToast(`${qCount} ${qCount === 1 ? 'question' : 'questions'} generated successfully!`);
         } else {
           console.warn("No data in response:", response.data);
           alert("The backend returned a success response but no data was found. Please check backend logs.");
@@ -1620,8 +1629,8 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
           saveQuizToHistory(outerEnvelope);
           
           playSuccessChime();
-          addNotification(`${numQuestionsValue} questions generated successfully! We've loaded them in the viewer below.`, "success");
-          showToast(`${numQuestionsValue} questions generated successfully!`);
+          const qCount = parseInt(numQuestionsValue) || 1;
+          showToast(`${qCount} ${qCount === 1 ? 'question' : 'questions'} generated successfully!`);
         }
       }
     } catch (error) {
@@ -1862,7 +1871,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
         </div>
       )}
 
-      <h1 className="question-gen-heading" style={{ color: '#1A5AFF', marginBottom: '30px' }}>Question Whiz</h1>
+      <h1 className="question-gen-heading" style={{ color: '#1A5AFF', margin: '0 0 20px 0' }}>Welcome, {getDisplayName()}! 👋</h1>
 
       <div className="qw-clean-layout">
         <div className="qw-source-btn-container">
@@ -2473,7 +2482,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
               </div>
               <div style={{ flex: 1 }}>
                 <h5 style={{ margin: '0 0 4px 0', fontWeight: '700', color: '#1a202c', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
-                  <span>Generating {numQuestionsValue} Questions</span>
+                  <span>Generating {numQuestionsValue} {parseInt(numQuestionsValue) === 1 ? 'Question' : 'Questions'}</span>
                   <span className="badge rounded-pill" style={{ backgroundColor: 'rgba(67, 97, 238, 0.15)', color: '#4361ee', fontSize: '11px', fontWeight: '600', padding: '4px 10px' }}>
                     {parseInt(numQuestionsValue) >= 10 ? 'Batch Process' : 'Active'}
                   </span>
