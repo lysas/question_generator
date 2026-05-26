@@ -50,6 +50,17 @@ app.add_middleware(
 # --- UTILITIES ---
 
 def repair_json_string(json_str: str) -> str:
+    # Clean any trailing markdown fences or whitespace first
+    json_str = json_str.strip()
+    if json_str.startswith("```json"):
+        json_str = json_str[7:]
+    elif json_str.startswith("```"):
+        json_str = json_str[3:]
+    if json_str.endswith("```"):
+        json_str = json_str[:-3]
+    json_str = json_str.strip()
+
+    # Try standard character escaping repair first
     boundary_chars = {',', ':', '}', ']'}
     result = []
     in_string = False
@@ -58,8 +69,6 @@ def repair_json_string(json_str: str) -> str:
     
     while i < n:
         char = json_str[i]
-        
-        # Handle escaped characters
         if char == '\\' and i + 1 < n:
             result.append(char)
             result.append(json_str[i+1])
@@ -74,7 +83,6 @@ def repair_json_string(json_str: str) -> str:
                     next_non_ws = json_str[j]
                     break
                 j += 1
-                
             if in_string:
                 if next_non_ws in boundary_chars:
                     in_string = False
@@ -94,6 +102,63 @@ def repair_json_string(json_str: str) -> str:
         
     repaired = "".join(result)
     repaired = re.sub(r',\s*([\]}])', r'\1', repaired)
+
+    # Validate if standard repair is valid JSON
+    try:
+        json.loads(repaired)
+        return repaired
+    except json.JSONDecodeError:
+        pass
+
+    # If parsing still fails, handle truncation by extracting completed question objects
+    array_start = repaired.find("[")
+    if array_start != -1:
+        prefix = repaired[:array_start+1]
+        array_content = repaired[array_start+1:]
+        
+        completed_objects = []
+        current_object = []
+        brace_depth = 0
+        in_string = False
+        escape = False
+        
+        for char in array_content:
+            if escape:
+                current_object.append(char)
+                escape = False
+                continue
+            if char == '\\':
+                current_object.append(char)
+                escape = True
+                continue
+            if char == '"':
+                in_string = not in_string
+                current_object.append(char)
+                continue
+            if not in_string:
+                if char == '{':
+                    brace_depth += 1
+                    current_object.append(char)
+                elif char == '}':
+                    brace_depth -= 1
+                    current_object.append(char)
+                    if brace_depth == 0:
+                        completed_objects.append("".join(current_object))
+                        current_object = []
+                else:
+                    if brace_depth > 0:
+                        current_object.append(char)
+            else:
+                current_object.append(char)
+                
+        if completed_objects:
+            final_repaired = prefix + ", ".join(completed_objects) + "]}"
+            try:
+                json.loads(final_repaired)
+                return final_repaired
+            except Exception:
+                pass
+
     return repaired
 
 
@@ -314,6 +379,15 @@ def is_valid_key(key: Optional[str]) -> bool:
     return True
 
 
+def format_provider_error(provider: str, e: Exception) -> str:
+    err_str = str(e).lower()
+    if "api key" in err_str or "auth" in err_str or "unauthorized" in err_str or "401" in err_str or "api_key" in err_str:
+        return f"Invalid API Key. Please check the API key configured for {provider}."
+    if "429" in err_str or "rate limit" in err_str or "quota" in err_str or "exhausted" in err_str:
+        return f"Rate limit or quota exceeded for {provider}. Please wait and try again."
+    return f"{provider} API call failed: {str(e)}"
+
+
 def get_ai_provider_and_key(
     x_openai_key: Optional[str],
     x_gemini_key: Optional[str],
@@ -322,55 +396,77 @@ def get_ai_provider_and_key(
     x_selected_provider: Optional[str] = None,
     x_selected_api_key: Optional[str] = None
 ):
-    # 1. If provider is explicitly selected, resolve it directly:
-    if x_selected_provider:
-        prov = x_selected_provider.lower().strip()
-        
-        # If an explicit key was sent via Model Settings panel, use it primarily
-        if x_selected_api_key and x_selected_api_key.strip():
-            return prov, x_selected_api_key.strip()
+    prov = (x_selected_provider or "").lower().strip()
+    if prov == "groq":
+        prov = "grok"
+    user_key = (x_selected_api_key or "").strip()
+    if user_key == "null" or not user_key:
+        user_key = None
+
+    def is_actual_key(k: Optional[str]) -> bool:
+        if not k:
+            return False
+        cleaned = k.strip()
+        if cleaned in ("", "null", "undefined"):
+            return False
+        if cleaned.startswith("****************") or cleaned.startswith("sk-proj-...") or cleaned.startswith("AIzaSy..."):
+            return False
+        if len(cleaned) < 10:
+            return False
+        return True
+
+    if prov:
+        if is_actual_key(user_key):
+            return prov, user_key
             
         if prov == "gemini":
-            key = (x_gemini_key or os.getenv("GEMINI_API_KEY") or "").strip()
-            return "gemini", key if key else None
-        if prov == "openai":
-            key = (x_openai_key or os.getenv("OPENAI_API_KEY") or "").strip()
-            return "openai", key if key else None
-        if prov in ("grok", "groq"):
-            key = (x_grok_key or os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
-            return "grok", key if key else None
-        if prov == "mistral":
-            key = (x_mistral_key or os.getenv("MISTRAL_API_KEY") or "").strip()
-            return "mistral", key if key else None
+            env_key = (x_gemini_key or os.getenv("GEMINI_API_KEY") or "").strip()
+            if is_actual_key(env_key):
+                return "gemini", env_key
+        elif prov == "openai":
+            env_key = (x_openai_key or os.getenv("OPENAI_API_KEY") or "").strip()
+            if is_actual_key(env_key):
+                return "openai", env_key
+        elif prov in ("grok", "groq"):
+            env_key = (x_grok_key or os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
+            if is_actual_key(env_key):
+                return "grok", env_key
+        elif prov == "mistral":
+            env_key = (x_mistral_key or os.getenv("MISTRAL_API_KEY") or "").strip()
+            if is_actual_key(env_key):
+                return "mistral", env_key
 
-    # 2. Check header keys first for auto-detect fallback (backward compatibility)
-    if is_valid_key(x_grok_key):
-        return "grok", x_grok_key.strip()
-    if is_valid_key(x_gemini_key):
-        return "gemini", x_gemini_key.strip()
-    if is_valid_key(x_openai_key):
-        return "openai", x_openai_key.strip()
-    if is_valid_key(x_mistral_key):
-        return "mistral", x_mistral_key.strip()
-        
-    # 3. Check environment fallback keys
-    env_grok = os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY")
-    if is_valid_key(env_grok):
-        return "grok", env_grok.strip()
+        env_gemini = os.getenv("GEMINI_API_KEY")
+        if is_actual_key(env_gemini):
+            return "gemini", env_gemini.strip()
 
-    env_gemini = os.getenv("GEMINI_API_KEY")
-    if is_valid_key(env_gemini):
-        return "gemini", env_gemini.strip()
-        
-    env_openai = os.getenv("OPENAI_API_KEY")
-    if is_valid_key(env_openai):
-        return "openai", env_openai.strip()
+        env_openai = os.getenv("OPENAI_API_KEY")
+        if is_actual_key(env_openai):
+            return "openai", env_openai.strip()
 
-    env_mistral = os.getenv("MISTRAL_API_KEY")
-    if is_valid_key(env_mistral):
-        return "mistral", env_mistral.strip()
-        
-    # No valid keys found
+        env_grok = os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY")
+        if is_actual_key(env_grok):
+            return "grok", env_grok.strip()
+
+        env_mistral = os.getenv("MISTRAL_API_KEY")
+        if is_actual_key(env_mistral):
+            return "mistral", env_mistral.strip()
+
+    for provider_name, header_val, env_var in [
+        ("gemini", x_gemini_key, "GEMINI_API_KEY"),
+        ("openai", x_openai_key, "OPENAI_API_KEY"),
+        ("grok", x_grok_key, "GROK_API_KEY"),
+        ("mistral", x_mistral_key, "MISTRAL_API_KEY")
+    ]:
+        if is_actual_key(header_val):
+            return provider_name, header_val.strip()
+        env_val = os.getenv(env_var) if env_var != "GROK_API_KEY" else (os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY"))
+        if is_actual_key(env_val):
+            return provider_name, env_val.strip()
+
+    if user_key:
+        return prov, user_key
+
     return None, None
 
 
@@ -506,7 +602,10 @@ async def query_with_pdf(
     x_model_top_p: Optional[float] = Header(None, alias="X-Model-Top-P"),
     token_payload: dict = Depends(verify_token)
 ):
+    logger.info(f"DEBUG HEADERS: selected_provider={x_selected_provider}, selected_api_key_len={len(x_selected_api_key) if x_selected_api_key else 0}")
+    logger.info(f"DEBUG FALLBACKS: gemini={len(x_gemini_key) if x_gemini_key else 0}, grok={len(x_grok_key) if x_grok_key else 0}, openai={len(x_openai_key) if x_openai_key else 0}")
     provider, api_key = get_ai_provider_and_key(x_openai_key, x_gemini_key, x_grok_key, x_mistral_key, x_selected_provider, x_selected_api_key)
+    logger.info(f"DEBUG RESOLVED: provider={provider}, key_len={len(api_key) if api_key else 0}")
     if not provider:
         raise HTTPException(
             status_code=400,
@@ -565,10 +664,15 @@ async def query_with_pdf(
     raw_response_text = ""
     provider_used = ""
     
+    # Enforce a safe minimum for max tokens to avoid truncation errors
+    safe_max_output = x_model_max_output
+    if safe_max_output is None or safe_max_output < 4096:
+        safe_max_output = 4096
+
     # Process common OpenAI-like parameters
     openai_params = {
         "temperature": x_model_temperature if x_model_temperature is not None else 0.2,
-        "max_tokens": x_model_max_output,
+        "max_tokens": safe_max_output,
         "top_p": x_model_top_p
     }
     # Only add stop if it's a non-empty string
@@ -587,7 +691,7 @@ async def query_with_pdf(
             gemini_kwargs = {
                 "contents": prompt,
                 "temperature": x_model_temperature,
-                "max_output_tokens": x_model_max_output,
+                "max_output_tokens": safe_max_output,
                 "top_p": x_model_top_p,
                 "top_k": x_model_top_k
             }
@@ -600,7 +704,7 @@ async def query_with_pdf(
             raw_response_text = resp.response
         except Exception as e:
             logger.error(f"Gemini generation failed: {e}")
-            raise HTTPException(status_code=400, detail=f"Gemini API call failed: {str(e)}")
+            raise HTTPException(status_code=400, detail=format_provider_error("Gemini", e))
             
     elif provider == "openai":
         provider_used = "openai"
@@ -615,7 +719,7 @@ async def query_with_pdf(
             raw_response_text = response.choices[0].message.content
         except Exception as e:
             logger.error(f"OpenAI generation failed: {e}")
-            raise HTTPException(status_code=400, detail=f"OpenAI API call failed: {str(e)}")
+            raise HTTPException(status_code=400, detail=format_provider_error("OpenAI", e))
             
     elif provider == "grok":
         provider_used = "grok"
@@ -630,7 +734,7 @@ async def query_with_pdf(
             raw_response_text = response.choices[0].message.content
         except Exception as e:
             logger.error(f"Groq generation failed: {e}")
-            raise HTTPException(status_code=400, detail=f"Groq API call failed: {str(e)}")
+            raise HTTPException(status_code=400, detail=format_provider_error("Groq", e))
     elif provider == "mistral":
         provider_used = "mistral"
         try:
@@ -644,7 +748,7 @@ async def query_with_pdf(
             raw_response_text = response.choices[0].message.content
         except Exception as e:
             logger.error(f"Mistral generation failed: {e}")
-            raise HTTPException(status_code=400, detail=f"Mistral API call failed: {str(e)}")
+            raise HTTPException(status_code=400, detail=format_provider_error("Mistral", e))
     else:
         raise HTTPException(
             status_code=400, 
@@ -894,10 +998,15 @@ async def generate_question(
     
     provider, api_key = get_ai_provider_and_key(x_openai_key, x_gemini_key, x_grok_key, x_mistral_key, x_selected_provider, x_selected_api_key)
     
+    # Enforce a safe minimum for max tokens to avoid truncation errors
+    safe_max_output = x_model_max_output
+    if safe_max_output is None or safe_max_output < 4096:
+        safe_max_output = 4096
+
     # Process common OpenAI-like parameters
     openai_params = {
         "temperature": x_model_temperature if x_model_temperature is not None else 0.2,
-        "max_tokens": x_model_max_output,
+        "max_tokens": safe_max_output,
         "top_p": x_model_top_p
     }
     # Only add stop if it's a non-empty string
@@ -916,7 +1025,7 @@ async def generate_question(
             gemini_kwargs = {
                 "contents": prompt,
                 "temperature": x_model_temperature,
-                "max_output_tokens": x_model_max_output,
+                "max_output_tokens": safe_max_output,
                 "top_p": x_model_top_p,
                 "top_k": x_model_top_k
             }
@@ -941,7 +1050,7 @@ async def generate_question(
                     raise HTTPException(status_code=400, detail=f"Gemini API call failed after retry: {str(e2)}")
             else:
                 logger.error(f"Gemini generation failed: {e}")
-                raise HTTPException(status_code=400, detail=f"Gemini API call failed: {str(e)}")
+                raise HTTPException(status_code=400, detail=format_provider_error("Gemini", e))
 
     elif provider == "openai":
         provider_used = "openai"
@@ -956,7 +1065,7 @@ async def generate_question(
             raw_response_text = response.choices[0].message.content
         except Exception as e:
             logger.error(f"OpenAI generation failed: {e}")
-            raise HTTPException(status_code=400, detail=f"OpenAI API call failed: {str(e)}")
+            raise HTTPException(status_code=400, detail=format_provider_error("OpenAI", e))
 
     elif provider == "grok":
         provider_used = "grok"
@@ -971,7 +1080,7 @@ async def generate_question(
             raw_response_text = response.choices[0].message.content
         except Exception as e:
             logger.error(f"Groq generation failed: {e}")
-            raise HTTPException(status_code=400, detail=f"Groq API call failed: {str(e)}")
+            raise HTTPException(status_code=400, detail=format_provider_error("Groq", e))
     elif provider == "mistral":
         provider_used = "mistral"
         try:
@@ -985,7 +1094,7 @@ async def generate_question(
             raw_response_text = response.choices[0].message.content
         except Exception as e:
             logger.error(f"Mistral generation failed: {e}")
-            raise HTTPException(status_code=400, detail=f"Mistral API call failed: {str(e)}")
+            raise HTTPException(status_code=400, detail=format_provider_error("Mistral", e))
     else:
         raise HTTPException(
             status_code=400,
@@ -1219,6 +1328,38 @@ async def generate_grade_questions(
         "difficulty": "Medium",
         "bloom_level": "Application"
     }
+
+
+@app.get("/api/auth/resolve-email")
+async def resolve_email(name: str):
+    import psycopg2
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        raise HTTPException(status_code=500, detail="DATABASE_URL not configured")
+    
+    try:
+        conn = psycopg2.connect(db_url)
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT email FROM auth.users WHERE raw_user_meta_data->>'name' ILIKE %s OR raw_user_meta_data->>'display_name' ILIKE %s OR email ILIKE %s LIMIT 1",
+                (name, name, name)
+            )
+            row = cur.fetchone()
+            if row:
+                return {"email": row[0]}
+            else:
+                if "@" in name:
+                    return {"email": name}
+                raise HTTPException(status_code=404, detail="User name not found.")
+    except Exception as e:
+        logger.error(f"Error resolving email: {e}")
+        if "relation" in str(e).lower() or "permission" in str(e).lower():
+            if "@" in name:
+                return {"email": name}
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 
 @app.get("/api/test-reload")

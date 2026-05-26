@@ -65,17 +65,7 @@ const SourceSelectionModal = ({ isOpen, onClose, onSelectSource }) => {
               <span>Similar</span>
             </button>
 
-            {/* Card: Image */}
-            <button 
-              type="button" 
-              className="source-grid-card"
-              onClick={() => onSelectSource(7)}
-            >
-              <div className="source-grid-icon-wrapper" style={{ color: '#ec4899', background: 'rgba(236, 72, 153, 0.08)' }}>
-                <FontAwesomeIcon icon={faImage} />
-              </div>
-              <span>Image</span>
-            </button>
+
 
             {/* Card: Audio */}
             <button 

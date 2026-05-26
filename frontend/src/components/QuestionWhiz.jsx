@@ -1871,7 +1871,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
         </div>
       )}
 
-      <h1 className="question-gen-heading" style={{ color: '#1A5AFF', margin: '0 0 20px 0' }}>Welcome, {getDisplayName()}! 👋</h1>
+      <h1 className="question-gen-heading" style={{ color: '#1A5AFF', margin: '0 0 20px 0' }}>Welcome, {getDisplayName()}!</h1>
 
       <div className="qw-clean-layout">
         <div className="qw-source-btn-container">
@@ -2152,14 +2152,14 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
         </div>
         <div className="qw-section">
           <div className="qw-section-title" style={{ display: 'flex', alignItems: 'center', userSelect: 'none', borderBottom: 'none', marginBottom: '8px' }}>
-            <span>⚙️ Model Settings</span>
+            <span>Model Settings</span>
           </div>
 
           <div className="qw-model-settings-panel">
             <div className="qw-grid-3">
               {/* Organization / Provider */}
               <div className="forrm-group-quiz qw-ms-card">
-                <label>🏢 ORGANIZATION</label>
+                <label>ORGANIZATION</label>
                 <select
                   value={msOrganization}
                   onChange={(e) => {
@@ -2176,7 +2176,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
 
               {/* Model */}
               <div className="forrm-group-quiz qw-ms-card">
-                <label>🤖 MODEL</label>
+                <label>MODEL</label>
                 <select value={msModel} onChange={(e) => setMsModel(e.target.value)}>
                   {(MODEL_OPTIONS[msOrganization] || []).map(m => (
                     <option key={m} value={m}>{m}</option>
@@ -2187,7 +2187,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
               {/* API Key */}
               <div className="forrm-group-quiz qw-ms-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <label style={{ margin: 0 }}>🔑 API KEY</label>
+                  <label style={{ margin: 0 }}>API KEY</label>
                   <a
                     href={
                       msOrganization === "Gemini" ? "https://aistudio.google.com/app/apikey" :
@@ -2215,7 +2215,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
             <div className="qw-grid-3">
               {/* Temperature */}
               <div className="forrm-group-quiz qw-ms-card">
-                <label>🌡️ TEMPERATURE</label>
+                <label>TEMPERATURE</label>
                 <div className="qw-slider-row">
                   <input
                     type="range"
@@ -2240,7 +2240,7 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
 
               {/* Max Output */}
               <div className="forrm-group-quiz qw-ms-card">
-                <label>📊 MAX OUTPUT</label>
+                <label>MAX OUTPUT</label>
                 <div className="qw-slider-row">
                   <input
                     type="range"

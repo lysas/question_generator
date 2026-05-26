@@ -17,7 +17,9 @@ import {
   faEyeSlash,
   faTrash,
   faShieldHalved,
-  faLock
+  faLock,
+  faBars,
+  faTimes
 } from '@fortawesome/free-solid-svg-icons';
 
 import jsPDF from "jspdf";
@@ -28,9 +30,9 @@ import QuestionWhiz from './components/QuestionWhiz';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
 import { authService } from './components/Authentication/authService';
 
-// Dashboard layout wrapping authenticated pages with the Lysa UI/UX light theme
 const DashboardLayout = ({ children, user, handleLogout }) => {
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isActive = (path) => {
     if (path === '/') {
       return location.pathname === '/' || location.pathname === '';
@@ -38,27 +40,29 @@ const DashboardLayout = ({ children, user, handleLogout }) => {
     return location.pathname.startsWith(path);
   };
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
   return (
-    <div className="d-flex" style={{ minHeight: '100vh', backgroundColor: '#f8fafc', fontFamily: "'Poppins', sans-serif" }}>
-      {/* Sidebar */}
-      <div className="p-4 d-flex flex-column" style={{ 
-        width: '280px', 
-        backgroundColor: '#ffffff', 
-        borderRight: '1px solid rgba(0, 0, 0, 0.05)',
-        boxShadow: '4px 0 20px rgba(0, 0, 0, 0.015)',
-        position: 'sticky',
-        top: 0,
-        height: '100vh',
-        zIndex: 100
-      }}>
-        <div className="d-flex align-items-center mb-5 gap-2 px-2" style={{ transition: 'all 0.3s' }}>
-          <div className="rounded-3 p-2 d-flex align-items-center justify-content-center" style={{ 
+    <div className="dashboard-container">
+      {/* Mobile Top Header */}
+      <div className="mobile-header">
+        <div className="d-flex align-items-center gap-2">
+          <button 
+            className="btn p-1 border-0" 
+            onClick={() => setMobileMenuOpen(true)}
+            style={{ color: '#1e293b' }}
+          >
+            <FontAwesomeIcon icon={faBars} size="lg" />
+          </button>
+          <div className="rounded-3 p-1.5 d-flex align-items-center justify-content-center" style={{ 
             backgroundColor: '#1A5AFF',
-            boxShadow: '0 4px 12px rgba(26, 90, 255, 0.25)',
-            width: '40px',
-            height: '40px'
+            width: '32px',
+            height: '32px'
           }}>
-            <svg width="22" height="22" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="18" height="18" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
               <line x1="20" y1="50" x2="50" y2="20" stroke="white" strokeWidth="18" strokeLinecap="round" />
               <line x1="20" y1="80" x2="50" y2="50" stroke="white" strokeWidth="18" strokeLinecap="round" />
               <line x1="50" y1="80" x2="80" y2="50" stroke="white" strokeWidth="18" strokeLinecap="round" />
@@ -73,80 +77,200 @@ const DashboardLayout = ({ children, user, handleLogout }) => {
               <circle cx="80" cy="80" r="10" fill="white" />
             </svg>
           </div>
-          <span className="fs-4 fw-bold" style={{ 
-            color: '#1A5AFF', 
-            letterSpacing: '0.5px',
-            fontFamily: "'Poppins', sans-serif"
-          }}>
+          <span className="fw-bold" style={{ color: '#1A5AFF', fontSize: '18px', fontFamily: "'Poppins', sans-serif" }}>
             QuestionWhiz
           </span>
         </div>
-
-        <div className="flex-grow-1">
-          <ul className="nav flex-column gap-2" style={{ listStyle: 'none', paddingLeft: 0 }}>
-            <li className="nav-item">
-              <Link to="/" className={`nav-link d-flex align-items-center gap-3 px-3 py-2.5 rounded-3 hover-sidebar ${isActive('/') ? 'active-sidebar' : ''}`} style={{ color: '#475569', fontWeight: '500', transition: 'all 0.25s' }}>
-                <FontAwesomeIcon icon={faChartBar} className={isActive('/') ? 'text-primary' : 'text-secondary'} style={{ width: '20px', transition: 'all 0.2s' }} />
-                <span>Dashboard Overview</span>
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link to="/generator" className={`nav-link d-flex align-items-center gap-3 px-3 py-2.5 rounded-3 hover-sidebar ${isActive('/generator') ? 'active-sidebar' : ''}`} style={{ color: '#475569', fontWeight: '500', transition: 'all 0.25s' }}>
-                <FontAwesomeIcon icon={faWandMagicSparkles} className={isActive('/generator') ? 'text-primary' : 'text-secondary'} style={{ width: '20px', transition: 'all 0.2s' }} />
-                <span>AI Generator</span>
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link to="/history" className={`nav-link d-flex align-items-center gap-3 px-3 py-2.5 rounded-3 hover-sidebar ${isActive('/history') ? 'active-sidebar' : ''}`} style={{ color: '#475569', fontWeight: '500', transition: 'all 0.25s' }}>
-                <FontAwesomeIcon icon={faHistory} className={isActive('/history') ? 'text-primary' : 'text-secondary'} style={{ width: '20px', transition: 'all 0.2s' }} />
-                <span>Quiz History</span>
-              </Link>
-            </li>
-
-          </ul>
+        <div className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm" style={{ 
+          width: '32px', 
+          height: '32px', 
+          backgroundColor: '#1A5AFF',
+          fontSize: '12px'
+        }}>
+          {user?.email?.charAt(0).toUpperCase() || 'U'}
         </div>
+      </div>
 
-        {/* User Card & Logout */}
-        <div className="mt-auto pt-4 border-top" style={{ borderColor: 'rgba(0, 0, 0, 0.05)' }}>
-          <div className="d-flex align-items-center gap-3 mb-3 p-3 rounded-4" style={{ 
-            background: 'linear-gradient(135deg, rgba(26, 90, 255, 0.02) 0%, rgba(26, 90, 255, 0.06) 100%)',
-            border: '1px solid rgba(26, 90, 255, 0.08)',
-            boxShadow: '0 4px 15px rgba(26, 90, 255, 0.03)'
-          }}>
-            <div className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm" style={{ 
-              width: '40px', 
-              height: '40px', 
-              backgroundColor: '#1A5AFF',
-              fontSize: '14px',
-              border: '2px solid #ffffff'
-            }}>
-              {user?.email?.charAt(0).toUpperCase() || 'U'}
+      {/* Sidebar Overlay Backdrop */}
+      {mobileMenuOpen && (
+        <div 
+          onClick={() => setMobileMenuOpen(false)} 
+          className="sidebar-backdrop"
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={`sidebar-container ${mobileMenuOpen ? 'open' : ''}`}>
+        <div className="p-4 d-flex flex-column h-100">
+          <div className="d-flex align-items-center justify-content-between mb-5 gap-2 px-2" style={{ transition: 'all 0.3s' }}>
+            <div className="d-flex align-items-center gap-2">
+              <div className="rounded-3 p-2 d-flex align-items-center justify-content-center" style={{ 
+                backgroundColor: '#1A5AFF',
+                boxShadow: '0 4px 12px rgba(26, 90, 255, 0.25)',
+                width: '40px',
+                height: '40px'
+              }}>
+                <svg width="22" height="22" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <line x1="20" y1="50" x2="50" y2="20" stroke="white" strokeWidth="18" strokeLinecap="round" />
+                  <line x1="20" y1="80" x2="50" y2="50" stroke="white" strokeWidth="18" strokeLinecap="round" />
+                  <line x1="50" y1="80" x2="80" y2="50" stroke="white" strokeWidth="18" strokeLinecap="round" />
+                  <circle cx="20" cy="20" r="10" fill="white" />
+                  <circle cx="50" cy="20" r="10" fill="white" />
+                  <circle cx="80" cy="20" r="10" fill="white" />
+                  <circle cx="20" cy="50" r="10" fill="white" />
+                  <circle cx="50" cy="50" r="10" fill="white" />
+                  <circle cx="80" cy="50" r="10" fill="white" />
+                  <circle cx="20" cy="80" r="10" fill="white" />
+                  <circle cx="50" cy="80" r="10" fill="white" />
+                  <circle cx="80" cy="80" r="10" fill="white" />
+                </svg>
+              </div>
+              <span className="fs-4 fw-bold" style={{ 
+                color: '#1A5AFF', 
+                letterSpacing: '0.5px',
+                fontFamily: "'Poppins', sans-serif"
+              }}>
+                QuestionWhiz
+              </span>
             </div>
-            <div className="overflow-hidden" style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
-              <div className="fw-semibold small" style={{ color: '#1e293b' }}>{user?.email || 'User'}</div>
-              <div className="text-secondary" style={{ fontSize: '11px', fontWeight: '500' }}>Standalone Plan</div>
-            </div>
+            
+            {/* Close button visible on mobile/tablet */}
+            <button 
+              className="btn d-lg-none p-1 border-0" 
+              onClick={() => setMobileMenuOpen(false)}
+              style={{ color: '#64748b' }}
+            >
+              <FontAwesomeIcon icon={faTimes} size="lg" />
+            </button>
           </div>
-          <button className="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2" style={{ 
-            borderRadius: '10px', 
-            fontWeight: '600',
-            padding: '10px',
-            borderColor: 'rgba(220, 38, 38, 0.2)',
-            transition: 'all 0.2s'
-          }} onClick={handleLogout}>
-            <FontAwesomeIcon icon={faSignOutAlt} />
-            <span>Sign Out</span>
-          </button>
+
+          <div className="flex-grow-1">
+            <ul className="nav flex-column gap-2" style={{ listStyle: 'none', paddingLeft: 0 }}>
+              <li className="nav-item">
+                <Link to="/" className={`nav-link d-flex align-items-center gap-3 px-3 py-2.5 rounded-3 hover-sidebar ${isActive('/') ? 'active-sidebar' : ''}`} style={{ color: '#475569', fontWeight: '500', transition: 'all 0.25s' }}>
+                  <FontAwesomeIcon icon={faChartBar} className={isActive('/') ? 'text-primary' : 'text-secondary'} style={{ width: '20px', transition: 'all 0.2s' }} />
+                  <span>Dashboard Overview</span>
+                </Link>
+              </li>
+              <li className="nav-item">
+                <Link to="/generator" className={`nav-link d-flex align-items-center gap-3 px-3 py-2.5 rounded-3 hover-sidebar ${isActive('/generator') ? 'active-sidebar' : ''}`} style={{ color: '#475569', fontWeight: '500', transition: 'all 0.25s' }}>
+                  <FontAwesomeIcon icon={faWandMagicSparkles} className={isActive('/generator') ? 'text-primary' : 'text-secondary'} style={{ width: '20px', transition: 'all 0.2s' }} />
+                  <span>AI Generator</span>
+                </Link>
+              </li>
+              <li className="nav-item">
+                <Link to="/history" className={`nav-link d-flex align-items-center gap-3 px-3 py-2.5 rounded-3 hover-sidebar ${isActive('/history') ? 'active-sidebar' : ''}`} style={{ color: '#475569', fontWeight: '500', transition: 'all 0.25s' }}>
+                  <FontAwesomeIcon icon={faHistory} className={isActive('/history') ? 'text-primary' : 'text-secondary'} style={{ width: '20px', transition: 'all 0.2s' }} />
+                  <span>Quiz History</span>
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* User Card & Logout */}
+          <div className="mt-auto pt-4 border-top" style={{ borderColor: 'rgba(0, 0, 0, 0.05)' }}>
+            <div className="d-flex align-items-center gap-3 mb-3 p-3 rounded-4" style={{ 
+              background: 'linear-gradient(135deg, rgba(26, 90, 255, 0.02) 0%, rgba(26, 90, 255, 0.06) 100%)',
+              border: '1px solid rgba(26, 90, 255, 0.08)',
+              boxShadow: '0 4px 15px rgba(26, 90, 255, 0.03)'
+            }}>
+              <div className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm" style={{ 
+                width: '40px', 
+                height: '40px', 
+                backgroundColor: '#1A5AFF',
+                fontSize: '14px',
+                border: '2px solid #ffffff'
+              }}>
+                {(user?.user_metadata?.name || user?.user_metadata?.full_name || user?.email || 'U').charAt(0).toUpperCase()}
+              </div>
+              <div className="overflow-hidden" style={{ maxWidth: '150px' }}>
+                <div className="fw-semibold" style={{ color: '#1e293b', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.user_metadata?.name || user?.user_metadata?.full_name || user?.email || 'User'}</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email || ''}</div>
+              </div>
+            </div>
+            <button className="btn btn-outline-danger d-flex align-items-center justify-content-center gap-1" style={{ 
+              borderRadius: '6px', 
+              fontWeight: '500',
+              padding: '4px 14px',
+              fontSize: '12px',
+              borderColor: 'rgba(220, 38, 38, 0.15)',
+              transition: 'all 0.2s',
+              width: 'auto',
+              margin: '0 auto'
+            }} onClick={handleLogout}>
+              <FontAwesomeIcon icon={faSignOutAlt} style={{ fontSize: '11px' }} />
+              <span>Sign Out</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-grow-1 p-5 overflow-auto" style={{ maxHeight: '100vh' }}>
+      <div className="content-container">
         {children}
       </div>
 
-      {/* Sidebar Hover & Active Styles */}
+      {/* Sidebar Hover, Active, and Responsive Styles */}
       <style>{`
+        .dashboard-container {
+          display: flex;
+          min-height: 100vh;
+          background-color: #f8fafc;
+          font-family: 'Poppins', sans-serif;
+          width: 100%;
+        }
+        
+        .sidebar-container {
+          width: 280px;
+          background-color: #ffffff;
+          border-right: 1px solid rgba(0, 0, 0, 0.05);
+          box-shadow: 4px 0 20px rgba(0, 0, 0, 0.015);
+          position: sticky;
+          top: 0;
+          height: 100vh;
+          z-index: 100;
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          flex-shrink: 0;
+        }
+        
+        .content-container {
+          flex-grow: 1;
+          padding: 48px;
+          max-width: 100%;
+          min-height: 100vh;
+          box-sizing: border-box;
+          overflow-x: hidden;
+        }
+        
+        .mobile-header {
+          display: none;
+          background-color: #ffffff;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+          padding: 12px 20px;
+          position: sticky;
+          top: 0;
+          z-index: 99;
+          align-items: center;
+          justify-content: space-between;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.01);
+          width: 100%;
+        }
+        
+        .sidebar-backdrop {
+          position: fixed;
+          inset: 0;
+          background-color: rgba(15, 23, 42, 0.3);
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+          z-index: 1040;
+          animation: fadeIn 0.2s ease-out;
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
         .hover-sidebar {
           border-left: 3px solid transparent;
           transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -170,6 +294,7 @@ const DashboardLayout = ({ children, user, handleLogout }) => {
         .hover-sidebar.active-sidebar svg {
           color: #1A5AFF !important;
         }
+        
         .card-custom {
           background: #ffffff;
           border: 1px solid rgba(0, 0, 0, 0.05);
@@ -195,6 +320,38 @@ const DashboardLayout = ({ children, user, handleLogout }) => {
           border-color: #1A5AFF !important;
           box-shadow: 0 0 0 3px rgba(26, 90, 255, 0.1) !important;
         }
+        
+        @media (max-width: 991px) {
+          .dashboard-container {
+            flex-direction: column;
+          }
+          .sidebar-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            height: 100vh;
+            transform: translateX(-100%);
+            z-index: 1050;
+            box-shadow: 10px 0 30px rgba(15, 23, 42, 0.08);
+          }
+          .sidebar-container.open {
+            transform: translateX(0);
+          }
+          .content-container {
+            padding: 24px;
+            min-height: calc(100vh - 57px);
+          }
+          .mobile-header {
+            display: flex;
+          }
+        }
+        
+        @media (max-width: 576px) {
+          .content-container {
+            padding: 16px 12px;
+          }
+        }
       `}</style>
     </div>
   );
@@ -203,6 +360,7 @@ const DashboardLayout = ({ children, user, handleLogout }) => {
 // Overview dashboard home view
 const DashboardOverview = ({ user }) => {
   const [historyCount, setHistoryCount] = useState(0);
+  const [recentHistory, setRecentHistory] = useState([]);
   const emailPrefix = user?.email ? `${user.email}_` : "";
   const openApiKeySet = !!(localStorage.getItem(`${emailPrefix}openai_api_key`));
   const geminiApiKeySet = !!(localStorage.getItem(`${emailPrefix}gemini_api_key`));
@@ -214,7 +372,9 @@ const DashboardOverview = ({ user }) => {
     try {
       const stored = localStorage.getItem(`${emailPrefix}quiz_history`);
       if (stored) {
-        setHistoryCount(JSON.parse(stored).length);
+        const parsed = JSON.parse(stored);
+        setHistoryCount(parsed.length);
+        setRecentHistory(parsed.slice(0, 3));
       }
     } catch {}
   }, [emailPrefix]);
@@ -224,119 +384,195 @@ const DashboardOverview = ({ user }) => {
       <h2 className="fw-bold mb-1" style={{ color: '#181d38' }}>Welcome to QuestionWhiz</h2>
       <p className="text-secondary mb-4">Launch generating tests, quizzes and practice papers using your own AI provider keys.</p>
 
-      <div className="row g-4 mb-5">
-        <div className="col-md-4">
-          <div className="card card-custom p-4 h-100 d-flex flex-column justify-content-between">
-            <div>
-              <div className="text-secondary small mb-1" style={{ fontWeight: '500' }}>Generations Run</div>
-              <div className="fs-1 fw-bold mb-3" style={{ color: '#1e293b', fontFamily: "'Poppins', sans-serif" }}>{historyCount}</div>
-            </div>
-            <Link to="/history" className="btn btn-sm btn-outline-primary px-4 py-2 mt-auto" style={{ 
-              borderRadius: '50px', 
-              borderColor: 'rgba(26, 90, 255, 0.2)', 
-              color: '#1A5AFF',
-              fontWeight: '600',
-              transition: 'all 0.2s',
-              width: 'fit-content'
-            }}>View history</Link>
+      {/* Compact Grid for Overview Cards */}
+      <div className="mb-4" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: '16px'
+      }}>
+        {/* Generations Run */}
+        <div className="card card-custom p-3 d-flex flex-column justify-content-between" style={{ minHeight: '145px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)', border: '1px solid rgba(0, 0, 0, 0.04)' }}>
+          <div>
+            <div className="text-secondary small mb-1" style={{ fontWeight: '500', fontSize: '12px' }}>Generations Run</div>
+            <div className="fs-3 fw-bold mb-1" style={{ color: '#1e293b', fontFamily: "'Poppins', sans-serif" }}>{historyCount}</div>
           </div>
+          <Link to="/history" className="text-primary text-decoration-none fw-semibold align-self-start" style={{ fontSize: '12px' }}>
+            View history &rarr;
+          </Link>
         </div>
 
-        <div className="col-md-4">
-          <div className="card card-custom p-4 h-100 d-flex flex-column justify-content-between">
-            <div>
-              <div className="text-secondary small mb-1" style={{ fontWeight: '500' }}>OpenAI API Key</div>
-              <div className="d-flex align-items-center gap-2 my-2">
-                <span className={`badge ${openApiKeySet ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-3 py-2 rounded-pill`} style={{ fontSize: '11px', fontWeight: '600' }}>
-                  {openApiKeySet ? 'Configured' : 'Missing'}
-                </span>
-              </div>
-            </div>
-            <Link to="/generator" className="btn btn-sm btn-outline-primary px-4 py-2 mt-3" style={{ 
-              borderRadius: '50px', 
-              borderColor: 'rgba(26, 90, 255, 0.2)', 
-              color: '#1A5AFF',
-              fontWeight: '600',
-              transition: 'all 0.2s',
-              width: 'fit-content'
-            }}>Configure key</Link>
+        {/* OpenAI Key */}
+        <div className="card card-custom p-3 d-flex flex-column justify-content-between" style={{ minHeight: '145px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)', border: '1px solid rgba(0, 0, 0, 0.04)' }}>
+          <div>
+            <div className="text-secondary small mb-1" style={{ fontWeight: '500', fontSize: '12px' }}>OpenAI API Key</div>
+            <span className={`badge ${openApiKeySet ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-2 py-1 rounded-pill`} style={{ fontSize: '10px', fontWeight: '600' }}>
+              {openApiKeySet ? 'Configured' : 'Missing'}
+            </span>
           </div>
+          <Link to="/generator" className="text-primary text-decoration-none fw-semibold align-self-start" style={{ fontSize: '12px' }}>
+            Configure &rarr;
+          </Link>
         </div>
 
-        <div className="col-md-4">
-          <div className="card card-custom p-4 h-100 d-flex flex-column justify-content-between">
-            <div>
-              <div className="text-secondary small mb-1" style={{ fontWeight: '500' }}>Gemini API Key</div>
-              <div className="d-flex align-items-center gap-2 my-2">
-                <span className={`badge ${geminiApiKeySet ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-3 py-2 rounded-pill`} style={{ fontSize: '11px', fontWeight: '600' }}>
-                  {geminiApiKeySet ? 'Configured' : 'Missing'}
-                </span>
-              </div>
-            </div>
-            <Link to="/generator" className="btn btn-sm btn-outline-primary px-4 py-2 mt-3" style={{ 
-              borderRadius: '50px', 
-              borderColor: 'rgba(26, 90, 255, 0.2)', 
-              color: '#1A5AFF',
-              fontWeight: '600',
-              transition: 'all 0.2s',
-              width: 'fit-content'
-            }}>Configure key</Link>
+        {/* Gemini Key */}
+        <div className="card card-custom p-3 d-flex flex-column justify-content-between" style={{ minHeight: '145px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)', border: '1px solid rgba(0, 0, 0, 0.04)' }}>
+          <div>
+            <div className="text-secondary small mb-1" style={{ fontWeight: '500', fontSize: '12px' }}>Gemini API Key</div>
+            <span className={`badge ${geminiApiKeySet ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-2 py-1 rounded-pill`} style={{ fontSize: '10px', fontWeight: '600' }}>
+              {geminiApiKeySet ? 'Configured' : 'Missing'}
+            </span>
           </div>
+          <Link to="/generator" className="text-primary text-decoration-none fw-semibold align-self-start" style={{ fontSize: '12px' }}>
+            Configure &rarr;
+          </Link>
         </div>
 
-        <div className="col-md-4">
-          <div className="card card-custom p-4 h-100 d-flex flex-column justify-content-between">
-            <div>
-              <div className="text-secondary small mb-1" style={{ fontWeight: '500' }}>Groq API Key</div>
-              <div className="d-flex align-items-center gap-2 my-2">
-                <span className={`badge ${grokApiKeySet ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-3 py-2 rounded-pill`} style={{ fontSize: '11px', fontWeight: '600' }}>
-                  {grokApiKeySet ? 'Configured' : 'Missing'}
-                </span>
-              </div>
-            </div>
-            <Link to="/generator" className="btn btn-sm btn-outline-primary px-4 py-2 mt-3" style={{ 
-              borderRadius: '50px', 
-              borderColor: 'rgba(26, 90, 255, 0.2)', 
-              color: '#1A5AFF',
-              fontWeight: '600',
-              transition: 'all 0.2s',
-              width: 'fit-content'
-            }}>Configure key</Link>
+        {/* Groq Key */}
+        <div className="card card-custom p-3 d-flex flex-column justify-content-between" style={{ minHeight: '145px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)', border: '1px solid rgba(0, 0, 0, 0.04)' }}>
+          <div>
+            <div className="text-secondary small mb-1" style={{ fontWeight: '500', fontSize: '12px' }}>Groq API Key</div>
+            <span className={`badge ${grokApiKeySet ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-2 py-1 rounded-pill`} style={{ fontSize: '10px', fontWeight: '600' }}>
+              {grokApiKeySet ? 'Configured' : 'Missing'}
+            </span>
           </div>
+          <Link to="/generator" className="text-primary text-decoration-none fw-semibold align-self-start" style={{ fontSize: '12px' }}>
+            Configure &rarr;
+          </Link>
         </div>
 
-        <div className="col-md-4">
-          <div className="card card-custom p-4 h-100 d-flex flex-column justify-content-between">
-            <div>
-              <div className="text-secondary small mb-1" style={{ fontWeight: '500' }}>Mistral API Key</div>
-              <div className="d-flex align-items-center gap-2 my-2">
-                <span className={`badge ${mistralApiKeySet ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-3 py-2 rounded-pill`} style={{ fontSize: '11px', fontWeight: '600' }}>
-                  {mistralApiKeySet ? 'Configured' : 'Missing'}
-                </span>
-              </div>
-            </div>
-            <Link to="/generator" className="btn btn-sm btn-outline-primary px-4 py-2 mt-3" style={{ 
-              borderRadius: '50px', 
-              borderColor: 'rgba(26, 90, 255, 0.2)', 
-              color: '#1A5AFF',
-              fontWeight: '600',
-              transition: 'all 0.2s',
-              width: 'fit-content'
-            }}>Configure key</Link>
+        {/* Mistral Key */}
+        <div className="card card-custom p-3 d-flex flex-column justify-content-between" style={{ minHeight: '145px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)', border: '1px solid rgba(0, 0, 0, 0.04)' }}>
+          <div>
+            <div className="text-secondary small mb-1" style={{ fontWeight: '500', fontSize: '12px' }}>Mistral API Key</div>
+            <span className={`badge ${mistralApiKeySet ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-2 py-1 rounded-pill`} style={{ fontSize: '10px', fontWeight: '600' }}>
+              {mistralApiKeySet ? 'Configured' : 'Missing'}
+            </span>
           </div>
+          <Link to="/generator" className="text-primary text-decoration-none fw-semibold align-self-start" style={{ fontSize: '12px' }}>
+            Configure &rarr;
+          </Link>
         </div>
       </div>
 
-      <div className="card card-custom p-5 text-center" style={{ border: '2px dashed #eaeaea', backgroundColor: '#ffffff' }}>
-        <div className="mx-auto rounded-circle d-flex align-items-center justify-content-center mb-3" style={{ width: '80px', height: '80px', backgroundColor: '#e6ecff', color: '#4361ee' }}>
-          <FontAwesomeIcon icon={faWandMagicSparkles} size="2x" />
+      {/* Compact Horizontal Generator CTA Banner */}
+      <div className="card card-custom p-4 d-flex flex-column flex-md-row align-items-center justify-content-between gap-3 mt-4" style={{ 
+        border: '1px dashed rgba(67, 97, 238, 0.25)', 
+        backgroundColor: '#ffffff',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.01)'
+      }}>
+        <div className="d-flex align-items-center gap-3 text-center text-md-start flex-column flex-md-row">
+          <div className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 animate-badge" style={{ width: '48px', height: '48px', backgroundColor: '#e6ecff', color: '#4361ee' }}>
+            <FontAwesomeIcon icon={faWandMagicSparkles} size="sm" />
+          </div>
+          <div>
+            <h5 className="fw-bold mb-1" style={{ color: '#181d38', fontSize: '16px' }}>Ready to generate new questions?</h5>
+            <p className="text-secondary mb-0 small" style={{ maxWidth: '520px', fontSize: '12.5px' }}>
+              Upload documents, input topics, scrape web links, or insert media content to build comprehensive exam sheets in seconds.
+            </p>
+          </div>
         </div>
-        <h4 className="fw-bold mb-2" style={{ color: '#181d38' }}>Ready to generate new questions?</h4>
-        <p className="text-secondary max-w-md mx-auto mb-4" style={{ maxWidth: '500px' }}>
-          Upload PDF documents, input topics, scrape web links, or insert media content to build comprehensive exam sheets inside seconds.
-        </p>
-        <Link to="/generator" className="btn btn-lg btn-primary rounded-pill px-5 shadow-sm" style={{ backgroundColor: '#4361ee', borderColor: '#4361ee' }}>Open AI Generator</Link>
+        <Link to="/generator" className="btn btn-primary rounded-pill px-4 py-2 fw-semibold shadow-sm flex-shrink-0 animate-slide-up" style={{ 
+          backgroundColor: '#4361ee', 
+          borderColor: '#4361ee',
+          fontSize: '13px',
+          height: 'fit-content'
+        }}>
+          Open AI Generator
+        </Link>
       </div>
+
+      {/* Recent Generations */}
+      {recentHistory.length > 0 && (
+        <div className="mt-4">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h5 className="fw-bold mb-0" style={{ color: '#181d38', fontSize: '15px' }}>Recent Generations</h5>
+            <Link to="/history" className="text-primary text-decoration-none fw-semibold" style={{ fontSize: '12.5px' }}>
+              View all history &rarr;
+            </Link>
+          </div>
+          <div className="card card-custom p-0 overflow-hidden" style={{ border: '1px solid rgba(0, 0, 0, 0.04)', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)' }}>
+            <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0" style={{ fontSize: '13px' }}>
+                <thead className="table-light text-secondary" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <tr>
+                    <th className="px-4 py-3" style={{ borderBottom: 'none' }}>Topic</th>
+                    <th className="py-3" style={{ borderBottom: 'none' }}>Type</th>
+                    <th className="py-3" style={{ borderBottom: 'none' }}>Difficulty</th>
+                    <th className="py-3" style={{ borderBottom: 'none' }}>Bloom Level</th>
+                    <th className="py-3" style={{ borderBottom: 'none' }}>Date</th>
+                    <th className="pe-4 py-3 text-end" style={{ borderBottom: 'none' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentHistory.map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="px-4 py-3 fw-semibold" style={{ color: '#181d38' }}>{item.topic || 'General Topic'}</td>
+                      <td className="py-3 text-secondary">{item.type || 'MCQ'}</td>
+                      <td className="py-3">
+                        <span className="badge bg-secondary-subtle text-secondary px-2 py-1 rounded-pill" style={{ fontSize: '10px' }}>
+                          {item.difficulty || 'Easy'}
+                        </span>
+                      </td>
+                      <td className="py-3 text-secondary">{item.bloom || 'Not Specified'}</td>
+                      <td className="py-3 text-secondary">{item.date || 'Today'}</td>
+                      <td className="pe-4 py-3 text-end">
+                        <Link to="/history" className="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fw-semibold" style={{ fontSize: '11px', borderColor: 'rgba(26, 90, 255, 0.15)', color: '#1A5AFF' }}>
+                          Open
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Getting Started / Quick Onboarding Guide */}
+      {recentHistory.length === 0 && (
+        <div className="mt-5">
+          <h5 className="fw-bold mb-3" style={{ color: '#181d38', fontSize: '15px' }}>Getting Started</h5>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '20px'
+          }}>
+            <div className="card card-custom p-4" style={{ border: '1px solid rgba(0, 0, 0, 0.04)', backgroundColor: '#ffffff', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)' }}>
+              <div className="d-flex align-items-center gap-3 mb-3">
+                <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', backgroundColor: '#e6f4ea', color: '#137333', fontSize: '15px', fontWeight: 'bold' }}>1</div>
+                <h6 className="fw-bold mb-0" style={{ color: '#181d38', fontSize: '14px' }}>Configure API Key</h6>
+              </div>
+              <p className="text-secondary small mb-3" style={{ fontSize: '12px', lineHeight: '1.5' }}>Go to the Generator page and add your API key (Gemini, OpenAI, Groq, or Mistral) to start generating questions.</p>
+              <Link to="/generator" className="text-primary text-decoration-none fw-semibold small" style={{ fontSize: '12px' }}>
+                Configure Keys &rarr;
+              </Link>
+            </div>
+
+            <div className="card card-custom p-4" style={{ border: '1px solid rgba(0, 0, 0, 0.04)', backgroundColor: '#ffffff', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)' }}>
+              <div className="d-flex align-items-center gap-3 mb-3">
+                <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', backgroundColor: '#e8f0fe', color: '#1a73e8', fontSize: '15px', fontWeight: 'bold' }}>2</div>
+                <h6 className="fw-bold mb-0" style={{ color: '#181d38', fontSize: '14px' }}>Select Input Source</h6>
+              </div>
+              <p className="text-secondary small mb-3" style={{ fontSize: '12px', lineHeight: '1.5' }}>Choose how to provide source content: paste paragraphs, upload PDF/Word documents, enter topics, or upload media files.</p>
+              <Link to="/generator" className="text-primary text-decoration-none fw-semibold small" style={{ fontSize: '12px' }}>
+                Choose Source &rarr;
+              </Link>
+            </div>
+
+            <div className="card card-custom p-4" style={{ border: '1px solid rgba(0, 0, 0, 0.04)', backgroundColor: '#ffffff', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)' }}>
+              <div className="d-flex align-items-center gap-3 mb-3">
+                <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', backgroundColor: '#fef7e0', color: '#b06000', fontSize: '15px', fontWeight: 'bold' }}>3</div>
+                <h6 className="fw-bold mb-0" style={{ color: '#181d38', fontSize: '14px' }}>Generate & Export</h6>
+              </div>
+              <p className="text-secondary small mb-3" style={{ fontSize: '12px', lineHeight: '1.5' }}>Click Generate, review formatted questions in the preview panel, and instantly download them as a polished PDF or DOCX file.</p>
+              <Link to="/generator" className="text-primary text-decoration-none fw-semibold small" style={{ fontSize: '12px' }}>
+                Start Generation &rarr;
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1402,133 +1638,547 @@ const TermsAndConditions = () => {
   );
 };
 
+// Scoped Auth Styles
+const AuthStyles = () => (
+  <style>{`
+    .auth-split-container {
+      display: flex;
+      min-height: 100vh;
+      font-family: 'Poppins', sans-serif;
+      background-color: #ffffff;
+    }
+    .auth-left-panel {
+      flex: 1.1;
+      background-color: #0A1D37;
+      color: #ffffff;
+      padding: 60px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .auth-right-panel {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      background-color: #ffffff;
+    }
+    .auth-form-wrapper {
+      width: 100%;
+      max-width: 440px;
+    }
+    .auth-input-container {
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .auth-input-field {
+      width: 100%;
+      padding: 12px 16px;
+      padding-right: 46px;
+      background-color: #eaf2ff;
+      border: 1px solid rgba(26, 90, 255, 0.1);
+      border-radius: 8px;
+      color: #1e293b;
+      font-size: 14.5px;
+      transition: all 0.2s ease;
+    }
+    .auth-input-field:focus {
+      outline: none;
+      border-color: #1A5AFF;
+      background-color: #ffffff;
+      box-shadow: 0 0 0 3px rgba(26, 90, 255, 0.1);
+    }
+    .auth-eye-toggle {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #64748b;
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .auth-submit-btn {
+      width: 100%;
+      padding: 12px;
+      background-color: #4CAF50;
+      border: none;
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    .auth-submit-btn:hover {
+      background-color: #43A047;
+    }
+    .auth-submit-btn:disabled {
+      background-color: #a0aec0;
+      cursor: not-allowed;
+    }
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      color: #64748b;
+      font-size: 13px;
+      margin: 24px 0;
+    }
+    .auth-divider::before,
+    .auth-divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .auth-divider:not(:empty)::before {
+      margin-right: .5em;
+    }
+    .auth-divider:not(:empty)::after {
+      margin-left: .5em;
+    }
+    .auth-google-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background-color: #ffffff;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      color: #3c4043;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    .auth-google-btn:hover {
+      background-color: #f8fafc;
+    }
+    @media (max-width: 991px) {
+      .auth-left-panel {
+        display: none;
+      }
+    }
+  `}</style>
+);
+
 // Login Screen
 const Login = ({ setAuth }) => {
-  const [email, setEmail] = useState("");
+  const [emailOrName, setEmailOrName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loadingResolve, setLoadingResolve] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (email && password) {
+    if (emailOrName && password) {
+      setErrorMessage("");
+      setLoadingResolve(true);
       try {
-        const user = await authService.signIn(email, password);
+        let finalEmail = emailOrName.trim();
+        if (!finalEmail.includes("@")) {
+          finalEmail = await authService.resolveEmailFromName(finalEmail);
+        }
+        const user = await authService.signIn(finalEmail, password);
         setAuth(user);
         navigate("/");
       } catch (err) {
-        alert(err.message);
+        setErrorMessage(err.message || "Authentication failed.");
+      } finally {
+        setLoadingResolve(false);
       }
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setErrorMessage("");
+      await authService.signInWithGoogle();
+    } catch (err) {
+      setErrorMessage(err.message || "Google Sign-In failed.");
+    }
+  };
+
   return (
-    <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh', backgroundColor: '#f4f4f4', fontFamily: "'Poppins', sans-serif" }}>
-      <form onSubmit={handleSubmit} className="card card-custom p-5" style={{ width: '420px' }}>
-        <h3 className="fw-bold mb-2 text-center" style={{ color: '#181d38' }}>Sign In</h3>
-        <p className="text-secondary text-center small mb-4">Access your standalone QuestionWhiz engine</p>
+    <div className="auth-split-container">
+      <AuthStyles />
+      
+      {/* Left Sidebar Info Panel */}
+      <div className="auth-left-panel">
+        <div>
+          <div className="d-flex align-items-center gap-2 mb-4">
+            <div className="rounded-3 p-1 d-flex align-items-center justify-content-center" style={{ backgroundColor: '#1A5AFF', width: '36px', height: '36px' }}>
+              <svg width="20" height="20" viewBox="0 0 100 100" fill="none">
+                <circle cx="20" cy="20" r="10" fill="white" />
+                <circle cx="50" cy="20" r="10" fill="white" />
+                <circle cx="80" cy="20" r="10" fill="white" />
+                <circle cx="20" cy="50" r="10" fill="white" />
+                <circle cx="50" cy="50" r="10" fill="white" />
+                <circle cx="80" cy="50" r="10" fill="white" />
+                <circle cx="20" cy="80" r="10" fill="white" />
+                <circle cx="50" cy="80" r="10" fill="white" />
+                <circle cx="80" cy="80" r="10" fill="white" />
+              </svg>
+            </div>
+            <span style={{ fontSize: '20px', fontWeight: '700', letterSpacing: '-0.3px' }}>QuestionWhiz</span>
+          </div>
 
-        <div className="mb-3">
-          <label className="form-label text-secondary small">Email address</label>
-          <input type="email" required className="form-control form-control-custom" value={email} onChange={e => setEmail(e.target.value)} />
+          <h2 className="fw-bold mb-2" style={{ fontSize: '30px', lineHeight: '1.3' }}>Generate Exam-Ready Questions in Seconds</h2>
+          <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', marginBottom: '32px' }}>
+            Powered by AI. Designed for educators, trainers, and students who need high-quality assessments fast.
+          </p>
+
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {[
+              'AI-powered question generation from any topic or PDF',
+              'MCQ, True/False, Short Answer, Fill-in-the-Blank & more',
+              'Bloom\'s Taxonomy level targeting',
+              'Adjustable difficulty — Easy, Medium, Hard',
+              'Upload PDFs or paste text as input source',
+              'Export to PDF, Word, or Excel instantly',
+              'Full generation history & quiz tracking',
+              'Bring your own API key — OpenAI, Groq, Gemini'
+            ].map((text, i) => (
+              <li key={i} className="d-flex align-items-start" style={{ fontSize: '14px', color: '#cbd5e1' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2ecc71" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '10px', marginTop: '3px', flexShrink: 0 }}>
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>{text}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <div className="mb-4">
-          <label className="form-label text-secondary small">Password</label>
-          <input type="password" required className="form-control form-control-custom" value={password} onChange={e => setPassword(e.target.value)} />
+        <div style={{ marginTop: 'auto', paddingTop: '32px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Trusted by educators worldwide</p>
         </div>
+      </div>
 
-        <button type="submit" className="btn btn-primary w-100 rounded-pill py-2 shadow-sm mb-3" style={{ backgroundColor: '#4361ee', borderColor: '#4361ee' }}>Sign In</button>
-        <div className="text-center small text-secondary">
-          Don't have an account? <Link to="/register" className="text-primary text-decoration-none fw-semibold">Sign Up</Link>
+      {/* Right Sidebar Form Panel */}
+      <div className="auth-right-panel">
+        <div className="auth-form-wrapper">
+          {/* logo icon matching screenshot */}
+          <div className="text-center mb-4">
+            <svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="20" cy="20" r="10" fill="#1A5AFF" />
+              <circle cx="50" cy="20" r="10" fill="#1A5AFF" />
+              <circle cx="80" cy="20" r="10" fill="#1A5AFF" />
+              <circle cx="20" cy="50" r="10" fill="#1A5AFF" />
+              <circle cx="50" cy="50" r="10" fill="#1A5AFF" />
+              <circle cx="80" cy="50" r="10" fill="#1A5AFF" />
+              <circle cx="20" cy="80" r="10" fill="#1A5AFF" />
+              <circle cx="50" cy="80" r="10" fill="#1A5AFF" />
+              <circle cx="80" cy="80" r="10" fill="#1A5AFF" />
+            </svg>
+            <h3 className="fw-bold mt-3 mb-1" style={{ color: '#1e293b', fontSize: '24px' }}>Welcome, Let's get started!</h3>
+          </div>
+
+          {errorMessage && (
+            <div className="alert alert-danger p-2 small text-center mb-3" role="alert">
+              {errorMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <div className="auth-input-container">
+              <input 
+                type="text" 
+                required 
+                className="auth-input-field" 
+                placeholder="student@lysasolutions.com"
+                value={emailOrName} 
+                onChange={e => setEmailOrName(e.target.value)} 
+              />
+            </div>
+
+            <div className="auth-input-container">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                required 
+                className="auth-input-field" 
+                placeholder="Password"
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+              />
+              <button 
+                type="button" 
+                className="auth-eye-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
+              </button>
+            </div>
+
+            <div className="text-end mb-3">
+              <a href="#" className="text-primary text-decoration-none small" onClick={(e) => e.preventDefault()} style={{ fontSize: '13px', fontWeight: '500' }}>Forgot Password?</a>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={loadingResolve}
+              className="auth-submit-btn mb-2"
+            >
+              {loadingResolve ? "Logging In..." : "Login"}
+            </button>
+          </form>
+
+          <div className="auth-divider">or continue with</div>
+
+          <button 
+            type="button" 
+            onClick={handleGoogleSignIn}
+            className="auth-google-btn mb-4"
+          >
+            <svg width="18" height="18" viewBox="0 0 48 48">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.5 24c0-1.61-.15-3.16-.42-4.67H24v8.83h12.62c-.55 2.87-2.18 5.3-4.62 6.94l7.16 5.55C43.34 36.63 46.5 30.82 46.5 24z"/>
+              <path fill="#FBBC05" d="M10.54 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.98-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.16-5.55c-2 .54-4.52.86-7.16.86-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+            Sign in with Google
+          </button>
+
+          <div className="text-center" style={{ fontSize: '14.5px', color: '#64748b' }}>
+            New User? <Link to="/register" className="text-decoration-none fw-semibold" style={{ color: '#2ecc71' }}>Signup</Link>
+          </div>
+
         </div>
-      </form>
+      </div>
     </div>
   );
 };
 
 // Register Screen
 const Register = ({ setAuth }) => {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [loadingRegister, setLoadingRegister] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (email && password && agreedToTerms) {
+    if (name && email && password && agreedToTerms) {
+      setErrorMessage("");
+      setLoadingRegister(true);
       try {
-        const user = await authService.signUp(email, password);
+        const user = await authService.signUp(email, password, name.trim());
         setAuth(user);
         navigate("/");
       } catch (err) {
-        alert(err.message);
+        setErrorMessage(err.message || "Registration failed.");
+      } finally {
+        setLoadingRegister(false);
       }
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setErrorMessage("");
+      await authService.signInWithGoogle();
+    } catch (err) {
+      setErrorMessage(err.message || "Google Sign-In failed.");
+    }
+  };
+
   return (
-    <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh', backgroundColor: '#f4f4f4', fontFamily: "'Poppins', sans-serif" }}>
-      <form onSubmit={handleSubmit} className="card card-custom p-5" style={{ width: '420px' }}>
-        <h3 className="fw-bold mb-2 text-center" style={{ color: '#181d38' }}>Sign Up</h3>
-        <p className="text-secondary text-center small mb-4">Start generating exam papers with ease</p>
+    <div className="auth-split-container">
+      <AuthStyles />
+      
+      {/* Left Sidebar Info Panel */}
+      <div className="auth-left-panel">
+        <div>
+          <div className="d-flex align-items-center gap-2 mb-4">
+            <div className="rounded-3 p-1 d-flex align-items-center justify-content-center" style={{ backgroundColor: '#1A5AFF', width: '36px', height: '36px' }}>
+              <svg width="20" height="20" viewBox="0 0 100 100" fill="none">
+                <circle cx="20" cy="20" r="10" fill="white" />
+                <circle cx="50" cy="20" r="10" fill="white" />
+                <circle cx="80" cy="20" r="10" fill="white" />
+                <circle cx="20" cy="50" r="10" fill="white" />
+                <circle cx="50" cy="50" r="10" fill="white" />
+                <circle cx="80" cy="50" r="10" fill="white" />
+                <circle cx="20" cy="80" r="10" fill="white" />
+                <circle cx="50" cy="80" r="10" fill="white" />
+                <circle cx="80" cy="80" r="10" fill="white" />
+              </svg>
+            </div>
+            <span style={{ fontSize: '20px', fontWeight: '700', letterSpacing: '-0.3px' }}>QuestionWhiz</span>
+          </div>
 
-        <div className="mb-3">
-          <label className="form-label text-secondary small">Email address</label>
-          <input type="email" required className="form-control form-control-custom" value={email} onChange={e => setEmail(e.target.value)} />
+          <h2 className="fw-bold mb-2" style={{ fontSize: '30px', lineHeight: '1.3' }}>Generate Exam-Ready Questions in Seconds</h2>
+          <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', marginBottom: '32px' }}>
+            Powered by AI. Designed for educators, trainers, and students who need high-quality assessments fast.
+          </p>
+
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {[
+              'AI-powered question generation from any topic or PDF',
+              'MCQ, True/False, Short Answer, Fill-in-the-Blank & more',
+              'Bloom\'s Taxonomy level targeting',
+              'Adjustable difficulty — Easy, Medium, Hard',
+              'Upload PDFs or paste text as input source',
+              'Export to PDF, Word, or Excel instantly',
+              'Full generation history & quiz tracking',
+              'Bring your own API key — OpenAI, Groq, Gemini'
+            ].map((text, i) => (
+              <li key={i} className="d-flex align-items-start" style={{ fontSize: '14px', color: '#cbd5e1' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2ecc71" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '10px', marginTop: '3px', flexShrink: 0 }}>
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span>{text}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <div className="mb-4">
-          <label className="form-label text-secondary small">Password</label>
-          <input type="password" required className="form-control form-control-custom" value={password} onChange={e => setPassword(e.target.value)} />
+        <div style={{ marginTop: 'auto', paddingTop: '32px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>Trusted by educators worldwide</p>
         </div>
+      </div>
 
-        {/* Terms & Conditions Checkbox */}
-        <div className="mb-4 d-flex align-items-start gap-2">
-          <input
-            type="checkbox"
-            id="agreeTerms"
-            checked={agreedToTerms}
-            onChange={e => setAgreedToTerms(e.target.checked)}
-            style={{
-              width: '18px',
-              height: '18px',
-              marginTop: '2px',
-              accentColor: '#4361ee',
-              cursor: 'pointer',
-              flexShrink: 0
-            }}
-          />
-          <label htmlFor="agreeTerms" className="small text-secondary" style={{ cursor: 'pointer', lineHeight: '1.5' }}>
-            I agree to the{' '}
-            <Link
-              to="/terms"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary fw-semibold text-decoration-none"
-              style={{ borderBottom: '1px solid #4361ee' }}
+      {/* Right Sidebar Form Panel */}
+      <div className="auth-right-panel">
+        <div className="auth-form-wrapper">
+          {/* logo icon matching screenshot */}
+          <div className="text-center mb-4">
+            <svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="20" cy="20" r="10" fill="#1A5AFF" />
+              <circle cx="50" cy="20" r="10" fill="#1A5AFF" />
+              <circle cx="80" cy="20" r="10" fill="#1A5AFF" />
+              <circle cx="20" cy="50" r="10" fill="#1A5AFF" />
+              <circle cx="50" cy="50" r="10" fill="#1A5AFF" />
+              <circle cx="80" cy="50" r="10" fill="#1A5AFF" />
+              <circle cx="20" cy="80" r="10" fill="#1A5AFF" />
+              <circle cx="50" cy="80" r="10" fill="#1A5AFF" />
+              <circle cx="80" cy="80" r="10" fill="#1A5AFF" />
+            </svg>
+            <h3 className="fw-bold mt-3 mb-1" style={{ color: '#1e293b', fontSize: '24px' }}>Create Your Account</h3>
+          </div>
+
+          {errorMessage && (
+            <div className="alert alert-danger p-2 small text-center mb-3" role="alert">
+              {errorMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <div className="auth-input-container">
+              <input 
+                type="text" 
+                required 
+                className="auth-input-field" 
+                placeholder="Full Name"
+                value={name} 
+                onChange={e => setName(e.target.value)} 
+              />
+            </div>
+
+            <div className="auth-input-container">
+              <input 
+                type="email" 
+                required 
+                className="auth-input-field" 
+                placeholder="student@lysasolutions.com"
+                value={email} 
+                onChange={e => setEmail(e.target.value)} 
+              />
+            </div>
+
+            <div className="auth-input-container">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                required 
+                className="auth-input-field" 
+                placeholder="Password"
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+              />
+              <button 
+                type="button" 
+                className="auth-eye-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
+              </button>
+            </div>
+
+            {/* Terms & Conditions Checkbox */}
+            <div className="mb-4 d-flex align-items-start gap-2">
+              <input
+                type="checkbox"
+                id="agreeTerms"
+                checked={agreedToTerms}
+                onChange={e => setAgreedToTerms(e.target.checked)}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  marginTop: '2px',
+                  accentColor: '#4361ee',
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+              />
+              <label htmlFor="agreeTerms" className="small text-secondary" style={{ cursor: 'pointer', lineHeight: '1.5' }}>
+                I agree to the{' '}
+                <Link
+                  to="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary fw-semibold text-decoration-none"
+                  style={{ borderBottom: '1px solid #4361ee' }}
+                >
+                  Terms and Conditions
+                </Link>
+              </label>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={loadingRegister || !agreedToTerms}
+              className="auth-submit-btn mb-2"
+              style={{
+                backgroundColor: agreedToTerms ? '#4CAF50' : '#a0aec0',
+                cursor: agreedToTerms ? 'pointer' : 'not-allowed'
+              }}
             >
-              Terms and Conditions
-            </Link>
-          </label>
-        </div>
+              {loadingRegister ? "Registering..." : "Create Account"}
+            </button>
+          </form>
 
-        <button
-          type="submit"
-          className="btn btn-primary w-100 rounded-pill py-2 shadow-sm mb-3"
-          style={{
-            backgroundColor: agreedToTerms ? '#4361ee' : '#a0aec0',
-            borderColor: agreedToTerms ? '#4361ee' : '#a0aec0',
-            cursor: agreedToTerms ? 'pointer' : 'not-allowed',
-            transition: 'background-color 0.3s, border-color 0.3s'
-          }}
-          disabled={!agreedToTerms}
-        >
-          Create Account
-        </button>
-        <div className="text-center small text-secondary">
-          Already have an account? <Link to="/login" className="text-primary text-decoration-none fw-semibold">Sign In</Link>
+          <div className="auth-divider">or continue with</div>
+
+          <button 
+            type="button" 
+            onClick={handleGoogleSignIn}
+            className="auth-google-btn mb-4"
+          >
+            <svg width="18" height="18" viewBox="0 0 48 48">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.5 24c0-1.61-.15-3.16-.42-4.67H24v8.83h12.62c-.55 2.87-2.18 5.3-4.62 6.94l7.16 5.55C43.34 36.63 46.5 30.82 46.5 24z"/>
+              <path fill="#FBBC05" d="M10.54 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.98-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.16-5.55c-2 .54-4.52.86-7.16.86-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+            Sign in with Google
+          </button>
+
+          <div className="text-center" style={{ fontSize: '14.5px', color: '#64748b' }}>
+            Already have an account? <Link to="/login" className="text-decoration-none fw-semibold" style={{ color: '#2ecc71' }}>Sign In</Link>
+          </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 };
@@ -1540,11 +2190,21 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Centralized authentication state handler that syncs user to localStorage
+  const handleSetAuth = (u) => {
+    setUser(u);
+    if (u) {
+      localStorage.setItem("user", JSON.stringify(u));
+    } else {
+      localStorage.removeItem("user");
+    }
+  };
+
   // On component mount, check for an existing session
   useEffect(() => {
     const fetchUser = async () => {
       const current = await authService.getCurrentUser();
-      setUser(current);
+      handleSetAuth(current);
       setLoading(false);
     };
     fetchUser();
@@ -1562,15 +2222,15 @@ const App = () => {
 
   const handleLogout = () => {
     authService.signOut();
-    setUser(null);
+    handleSetAuth(null);
   };
 
   return (
     <NotificationProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<Login setAuth={setUser} />} />
-          <Route path="/register" element={<Register setAuth={setUser} />} />
+          <Route path="/login" element={<Login setAuth={handleSetAuth} />} />
+          <Route path="/register" element={<Register setAuth={handleSetAuth} />} />
           <Route path="/terms" element={<TermsAndConditions />} />
           <Route path="/*" element={
             user ? (
