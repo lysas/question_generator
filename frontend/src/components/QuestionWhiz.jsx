@@ -24,7 +24,8 @@ import {
   faLightbulb,
   faExclamationTriangle,
   faInfoCircle,
-  faCheckCircle
+  faCheckCircle,
+  faCircleNotch
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import jsPDF from "jspdf";
@@ -467,6 +468,11 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
     return [responseData];
   };
   const handleUseUploadedFile = async (filename) => {
+    setLongProcessWarning(false);
+    const timeoutId = setTimeout(() => {
+      setLongProcessWarning(true);
+    }, 5000);
+
     try {
       // Check if API Keys are configured
       const emailPrefix = user?.email ? `${user.email}_` : "";
@@ -556,6 +562,8 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
       const errorMsg = error.response?.data?.detail || error.response?.data?.error || error.response?.data?.message || error.message;
       showToast(`Failed to generate questions: ${cleanErrorMessage(errorMsg)}`, "error", 6000);
     } finally {
+      clearTimeout(timeoutId);
+      setLongProcessWarning(false);
       setIsLoading(false);
     }
   };
@@ -1757,24 +1765,14 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
 
       {/* Long Processing Warning Toast */}
       {longProcessWarning && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: '#ff9800',
-          color: 'white',
-          padding: '10px 20px',
-          borderRadius: '5px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-          zIndex: 2000,
-          fontWeight: 'bold',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px'
-        }}>
-          <i className="fa fa-info-circle"></i>
-          <span>Generation is taking longer than usual. You can continue with other work; we will notify you when it is done.</span>
+        <div className="qw-processing-toast">
+          <div className="qw-processing-content">
+            <FontAwesomeIcon icon={faCircleNotch} className="qw-processing-spinner" />
+            <span>Please hold on while the request is being processed.</span>
+          </div>
+          <div className="qw-buffer-bar-container">
+            <div className="qw-buffer-bar-active" />
+          </div>
         </div>
       )}
 
