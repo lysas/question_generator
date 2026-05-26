@@ -50,6 +50,10 @@ const cleanErrorMessage = (rawMsg) => {
   if (!rawMsg) return "An unknown error occurred.";
   let msg = String(rawMsg);
 
+  if (msg.includes("413") || msg.toLowerCase().includes("request entity too large") || msg.toLowerCase().includes("too large")) {
+    return "The uploaded file is too large (413 Request Entity Too Large). Please increase Nginx's 'client_max_body_size' limit in your server configuration, or try uploading a smaller file.";
+  }
+
   // Check if it's a python dict-like string, e.g. "{'code': '...', 'error': '...'}"
   if (msg.includes("{") && msg.includes("}")) {
     try {
