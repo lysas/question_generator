@@ -283,6 +283,48 @@ const DashboardOverview = ({ user }) => {
             }}>Configure key</Link>
           </div>
         </div>
+
+        <div className="col-md-4">
+          <div className="card card-custom p-4 h-100 d-flex flex-column justify-content-between">
+            <div>
+              <div className="text-secondary small mb-1" style={{ fontWeight: '500' }}>Groq API Key</div>
+              <div className="d-flex align-items-center gap-2 my-2">
+                <span className={`badge ${grokApiKeySet ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-3 py-2 rounded-pill`} style={{ fontSize: '11px', fontWeight: '600' }}>
+                  {grokApiKeySet ? 'Configured' : 'Missing'}
+                </span>
+              </div>
+            </div>
+            <Link to="/generator" className="btn btn-sm btn-outline-primary px-4 py-2 mt-3" style={{ 
+              borderRadius: '50px', 
+              borderColor: 'rgba(26, 90, 255, 0.2)', 
+              color: '#1A5AFF',
+              fontWeight: '600',
+              transition: 'all 0.2s',
+              width: 'fit-content'
+            }}>Configure key</Link>
+          </div>
+        </div>
+
+        <div className="col-md-4">
+          <div className="card card-custom p-4 h-100 d-flex flex-column justify-content-between">
+            <div>
+              <div className="text-secondary small mb-1" style={{ fontWeight: '500' }}>Mistral API Key</div>
+              <div className="d-flex align-items-center gap-2 my-2">
+                <span className={`badge ${mistralApiKeySet ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-3 py-2 rounded-pill`} style={{ fontSize: '11px', fontWeight: '600' }}>
+                  {mistralApiKeySet ? 'Configured' : 'Missing'}
+                </span>
+              </div>
+            </div>
+            <Link to="/generator" className="btn btn-sm btn-outline-primary px-4 py-2 mt-3" style={{ 
+              borderRadius: '50px', 
+              borderColor: 'rgba(26, 90, 255, 0.2)', 
+              color: '#1A5AFF',
+              fontWeight: '600',
+              transition: 'all 0.2s',
+              width: 'fit-content'
+            }}>Configure key</Link>
+          </div>
+        </div>
       </div>
 
       <div className="card card-custom p-5 text-center" style={{ border: '2px dashed #eaeaea', backgroundColor: '#ffffff' }}>
