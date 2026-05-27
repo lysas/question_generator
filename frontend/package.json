@@ -24,7 +24,7 @@
       "electron/**/*"
     ],
     "win": {
-      "target": "zip"
+      "target": "portable"
     },
     "mac": {
       "target": "dmg",
