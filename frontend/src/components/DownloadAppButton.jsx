@@ -11,8 +11,8 @@ const DownloadAppButton = () => {
   const handleDownload = () => {
     setClicked(true);
     const link = document.createElement('a');
-    link.href = '/QuestionWhiz-Windows.zip';
-    link.download = 'QuestionWhiz-Windows.zip';
+    link.href = '/QuestionWhizSetup.exe';
+    link.download = 'QuestionWhizSetup.exe';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
