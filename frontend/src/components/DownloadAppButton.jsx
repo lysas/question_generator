@@ -11,8 +11,8 @@ const DownloadAppButton = () => {
   const handleDownload = () => {
     setClicked(true);
     const link = document.createElement('a');
-    link.href = '/QuestionWhiz-Windows.zip';
-    link.download = 'QuestionWhiz-Windows.zip';
+    link.href = '/QuestionWhizSetup.exe';
+    link.download = 'QuestionWhizSetup.exe';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -135,7 +135,7 @@ const DownloadAppButton = () => {
           animation: 'dl-fade-in 0.3s ease-out',
         }}>
           <strong style={{ color: '#16a34a' }}>✓ Download started!</strong><br />
-          Extract the zip → Run <strong>QuestionWhiz.exe</strong>
+          Run the downloaded <strong>QuestionWhizSetup.exe</strong> to install.
         </div>
       )}
 

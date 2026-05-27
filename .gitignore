@@ -39,6 +39,7 @@ wheels/
 dist-electron/
 dev-dist/
 *.zip
+*.exe
 
 # System & IDE files
 .DS_Store
