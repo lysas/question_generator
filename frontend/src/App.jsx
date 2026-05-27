@@ -29,7 +29,7 @@ import { saveAs } from "file-saver";
 import QuestionWhiz from './components/QuestionWhiz';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
 import { authService } from './components/Authentication/authService';
-import DownloadAppButton from './components/DownloadAppButton';
+import InstallAppButton from './components/InstallAppButton';
 
 const DashboardLayout = ({ children, user, handleLogout }) => {
   const location = useLocation();
@@ -168,9 +168,9 @@ const DashboardLayout = ({ children, user, handleLogout }) => {
             </ul>
           </div>
 
-          {/* Install App Button */}
+          {/* Install Web App Button */}
           <div className="px-1 mb-2">
-            <DownloadAppButton />
+            <InstallAppButton />
           </div>
 
           {/* User Card & Logout */}

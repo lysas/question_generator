@@ -12,14 +12,19 @@ const InstallAppButton = () => {
   const [installing, setInstalling] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  if (!isInstallable || isInstalled) return null;
+  if (isInstalled) return null;
 
   const handleInstall = async () => {
-    setInstalling(true);
-    await install();
-    setInstalling(false);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    if (isInstallable) {
+      setInstalling(true);
+      await install();
+      setInstalling(false);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } else {
+      setInstalling(true);
+      setTimeout(() => setInstalling(false), 8000);
+    }
   };
 
   return (
@@ -157,6 +162,32 @@ const InstallAppButton = () => {
             <polyline points="20 6 9 17 4 12" />
           </svg>
           QuestionWhiz installed successfully!
+        </div>
+      )}
+
+      {/* Install instructions (shown when native prompt is not available) */}
+      {!isInstallable && !isInstalled && installing && (
+        <div style={{
+          padding: '10px 12px',
+          marginBottom: '8px',
+          borderRadius: '8px',
+          background: 'rgba(37, 99, 235, 0.06)',
+          border: '1px solid rgba(37, 99, 235, 0.12)',
+          fontSize: '11px',
+          color: '#475569',
+          lineHeight: '1.55',
+          fontFamily: "'Poppins', sans-serif",
+          animation: 'pwa-slide-in 0.3s ease-out',
+        }}>
+          <strong style={{ color: '#1d4ed8', display: 'block', marginBottom: '4px' }}>
+            📲 Install as Desktop App
+          </strong>
+          <div style={{ marginBottom: '2px' }}>
+            <strong>Chrome / Edge:</strong> Click the <strong>⊕</strong> icon in the address bar → "Install"
+          </div>
+          <div>
+            This creates a <strong>Desktop shortcut</strong> that opens QuestionWhiz as a standalone app — no zip needed!
+          </div>
         </div>
       )}
 
