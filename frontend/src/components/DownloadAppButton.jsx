@@ -1,66 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 
-/**
- * DownloadAppButton
- * Always-visible sidebar button. When PWA install prompt is available,
- * it installs the app as a web application (creates a Desktop shortcut).
- * Otherwise it shows the user how to install from their browser menu.
- */
 const DownloadAppButton = () => {
   const [clicked, setClicked] = useState(false);
-  const [installed, setInstalled] = useState(false);
-  const deferredPrompt = useRef(null);
-  const [canInstall, setCanInstall] = useState(false);
 
-  useEffect(() => {
-    const handler = (e) => {
-      e.preventDefault();
-      deferredPrompt.current = e;
-      setCanInstall(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', handler);
-
-    // Detect if already installed
-    window.addEventListener('appinstalled', () => {
-      setInstalled(true);
-      setCanInstall(false);
-      deferredPrompt.current = null;
-    });
-
-    // Check if running as standalone PWA already
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setInstalled(true);
-    }
-
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const handleClick = async () => {
-    if (canInstall && deferredPrompt.current) {
-      // Trigger native PWA install prompt
-      deferredPrompt.current.prompt();
-      const { outcome } = await deferredPrompt.current.userChoice;
-      if (outcome === 'accepted') {
-        setInstalled(true);
-        setCanInstall(false);
-      }
-      deferredPrompt.current = null;
-    } else {
-      // Show instructions
-      setClicked(true);
-      setTimeout(() => setClicked(false), 8000);
-    }
+  const handleDownload = () => {
+    setClicked(true);
+    const link = document.createElement('a');
+    link.href = '/QuestionWhiz-Windows.zip';
+    link.download = 'QuestionWhiz-Windows.zip';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => setClicked(false), 6000);
   };
-
-  if (installed) return null;
 
   return (
     <>
       <button
         id="download-app-btn"
-        onClick={handleClick}
-        title="Install QuestionWhiz on your Desktop"
+        onClick={handleDownload}
+        title="Download QuestionWhiz Desktop App"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -101,7 +60,6 @@ const DownloadAppButton = () => {
           }
         }}
       >
-        {/* Shimmer */}
         <span
           aria-hidden="true"
           style={{
@@ -116,7 +74,6 @@ const DownloadAppButton = () => {
           }}
         />
 
-        {/* Icon */}
         {clicked ? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2.5"
@@ -136,10 +93,9 @@ const DownloadAppButton = () => {
         )}
 
         <span style={{ whiteSpace: 'nowrap' }}>
-          {clicked ? 'See below ↓' : 'Install App'}
+          {clicked ? 'Downloading...' : 'Download App'}
         </span>
 
-        {/* Badge */}
         {!clicked && (
           <span style={{
             marginLeft: 'auto',
@@ -156,29 +112,21 @@ const DownloadAppButton = () => {
         )}
       </button>
 
-      {/* Install instructions (shown when native prompt is not available) */}
       {clicked && (
         <div style={{
           padding: '10px 12px',
           marginBottom: '8px',
           borderRadius: '8px',
-          background: 'rgba(37, 99, 235, 0.06)',
-          border: '1px solid rgba(37, 99, 235, 0.12)',
+          background: 'rgba(22, 163, 74, 0.08)',
+          border: '1px solid rgba(22, 163, 74, 0.15)',
           fontSize: '11px',
           color: '#475569',
-          lineHeight: '1.55',
+          lineHeight: '1.5',
           fontFamily: "'Poppins', sans-serif",
           animation: 'dl-fade-in 0.3s ease-out',
         }}>
-          <strong style={{ color: '#1d4ed8', display: 'block', marginBottom: '4px' }}>
-            📲 Install as Desktop App
-          </strong>
-          <div style={{ marginBottom: '2px' }}>
-            <strong>Chrome / Edge:</strong> Click the <strong>⊕</strong> icon in the address bar → "Install"
-          </div>
-          <div>
-            This creates a <strong>Desktop shortcut</strong> that opens QuestionWhiz as a standalone app — no zip or exe needed!
-          </div>
+          <strong style={{ color: '#16a34a' }}>✓ Download started!</strong><br />
+          Extract the zip file to run the app.
         </div>
       )}
 
