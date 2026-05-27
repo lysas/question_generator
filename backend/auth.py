@@ -18,49 +18,57 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         )
 
     try:
-        # Get the unverified header to see what algorithm it uses
+        # Get the unverified header to determine the algorithm
         unverified_header = jwt.get_unverified_header(token)
         alg = unverified_header.get("alg", "HS256")
         
         if alg == "HS256":
-            # Symmetric key verification (Standard Supabase)
-            import base64
-            try:
-                # Pad if necessary, though it should be padded correctly
-                padded_secret = SUPABASE_JWT_SECRET + "=" * ((4 - len(SUPABASE_JWT_SECRET) % 4) % 4)
-                secret_key = base64.b64decode(padded_secret)
-            except Exception:
-                secret_key = SUPABASE_JWT_SECRET
-
+            # Legacy Symmetric key verification (HS256)
+            secret_key = SUPABASE_JWT_SECRET
             payload = jwt.decode(
                 token,
                 secret_key,
                 algorithms=["HS256"],
                 options={"verify_aud": False} 
             )
+        elif alg in ("RS256", "ES256"):
+            # Asymmetric key verification (RS256 / ES256) via JWKS
+            supabase_url = os.getenv("VITE_SUPABASE_URL", "") or os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
+            if not supabase_url:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Supabase URL environment variable is missing for asymmetric token verification."
+                )
+            
+            jwks_url = f"{supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+            jwk_client = jwt.PyJWKClient(jwks_url)
+            
+            try:
+                signing_key = jwk_client.get_signing_key_from_jwt(token)
+                payload = jwt.decode(
+                    token,
+                    signing_key.key,
+                    algorithms=[alg],
+                    options={"verify_aud": False}
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=f"{alg} Signature Verification Failed: {str(e)}",
+                )
         else:
-            # Asymmetric key (ES256/RS256) - since the backend doesn't have a 
-            # JWKS public key URL configured, we decode it gracefully without any 
-            # verification (signature, audience, expiration, etc.) so the user is 
-            # not locked out of their local workspace due to lack of certs or clock skew.
-            payload = jwt.decode(
-                token,
-                "",
-                options={
-                    "verify_signature": False,
-                    "verify_aud": False,
-                    "verify_exp": False,
-                    "verify_nbf": False,
-                    "verify_iat": False
-                }
-            )
-        
-        # Supabase JWTs typically have 'aud' set to 'authenticated' for logged in users
-        aud = payload.get("aud")
-        if alg == "HS256" and aud != "authenticated":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token audience.",
+                detail=f"Unsupported token algorithm: {alg}",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Validate audience
+        aud = payload.get("aud")
+        if aud != "authenticated":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token audience. Expected 'authenticated'.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
             

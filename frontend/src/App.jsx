@@ -29,6 +29,7 @@ import { saveAs } from "file-saver";
 import QuestionWhiz from './components/QuestionWhiz';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
 import { authService } from './components/Authentication/authService';
+import DownloadAppButton from './components/DownloadAppButton';
 
 const DashboardLayout = ({ children, user, handleLogout }) => {
   const location = useLocation();
@@ -165,6 +166,11 @@ const DashboardLayout = ({ children, user, handleLogout }) => {
                 </Link>
               </li>
             </ul>
+          </div>
+
+          {/* Download App Button */}
+          <div className="px-1 mb-2">
+            <DownloadAppButton />
           </div>
 
           {/* User Card & Logout */}
@@ -1520,7 +1526,37 @@ const Settings = ({ user }) => {
           </div>
         </div>
 
-        <button type="submit" className="btn btn-primary rounded-pill px-4 shadow-sm w-100 py-2.5 mt-2" style={{ backgroundColor: '#4361ee', borderColor: '#4361ee', fontWeight: '500' }}>Save Settings</button>
+        <button 
+          type="submit" 
+          className="btn w-100 py-3 mt-3 d-flex align-items-center justify-content-center gap-2" 
+          style={{ 
+            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '12px',
+            fontWeight: '600',
+            fontSize: '15px',
+            letterSpacing: '0.3px',
+            boxShadow: '0 8px 20px rgba(37, 99, 235, 0.25)',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            cursor: 'pointer'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 12px 24px rgba(37, 99, 235, 0.35)';
+            e.currentTarget.style.background = 'linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 8px 20px rgba(37, 99, 235, 0.25)';
+            e.currentTarget.style.background = 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)';
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'translateY(1px)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+        >
+          <FontAwesomeIcon icon={faSave} />
+          Save API Keys
+        </button>
       </form>
 
       <div className="card border-0 p-4 mt-4 shadow-sm" style={{ 

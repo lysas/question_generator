@@ -80,10 +80,6 @@ const cleanErrorMessage = (rawMsg) => {
     }
   }
 
-  if (msg.includes("api_key") || msg.includes("api key") || msg.includes("unauthorized") || msg.includes("401")) {
-    return "Authentication Error: The API key provided is invalid or expired. Please check your AI API key settings.";
-  }
-
   // Clean prefixes
   msg = msg.replace(/^Error code: \d+ - /i, "");
   msg = msg.replace(/^Groq API call failed: /i, "");
@@ -1347,10 +1343,10 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
       const grokApiKey = localStorage.getItem(`${emailPrefix}grok_api_key`);
       const mistralApiKey = localStorage.getItem(`${emailPrefix}mistral_api_key`);
       if (!openApiKey && !geminiApiKey && !grokApiKey && !mistralApiKey) {
-        showToast("No API key found in settings. The server will use its default key if available.", "info", 4000);
-        // Do NOT return — allow the request to proceed using server-side keys
+        alert("Please enter your API key in Settings.");
+        setIsLoading(false);
+        return;
       }
-      // Proceeding to request, backend will fall back to server-side .env keys if none provided in headers.
 
       if (files.length === 0 && FILE_SOURCE_MODES.includes(activeButton)) {
         alert("Please upload a file first");
@@ -2203,12 +2199,65 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
                     Get {msOrganization} Key ↗
                   </a>
                 </div>
-                <input
-                  type="password"
-                  placeholder={`Enter ${msOrganization} Key...`}
-                  value={msApiKey}
-                  onChange={handleApiKeyChange}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="password"
+                    placeholder={`Enter ${msOrganization} Key...`}
+                    value={msApiKey}
+                    onChange={handleApiKeyChange}
+                    style={{ paddingRight: '70px', borderRadius: '10px' }}
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (!msApiKey.trim()) {
+                        showToast(`Please enter a valid ${msOrganization} API key first.`, "info");
+                        return;
+                      }
+                      
+                      const keyMap = {
+                        Gemini: "gemini_api_key",
+                        OpenAI: "openai_api_key",
+                        Groq: "grok_api_key",
+                        Mistral: "mistral_api_key"
+                      };
+                      
+                      const storedUserStr = localStorage.getItem("user");
+                      let emailPrefix = "";
+                      if (storedUserStr && storedUserStr !== "undefined") {
+                        try {
+                          const u = JSON.parse(storedUserStr);
+                          if (u && u.email) emailPrefix = `${u.email}_`;
+                        } catch (e) { }
+                      }
+                      
+                      const storageKey = `${emailPrefix}${keyMap[msOrganization]}`;
+                      localStorage.setItem(storageKey, msApiKey.trim());
+                      
+                      showToast(`${msOrganization} API Key securely saved!`, "success");
+                    }}
+                    style={{
+                      position: 'absolute',
+                      right: '4px',
+                      top: '4px',
+                      bottom: '4px',
+                      padding: '0 12px',
+                      background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
+                    Save
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -2500,6 +2549,9 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
           <button type="button" className="qw-generate-btn" onClick={handleGenerate} disabled={isLoading}>
             {isLoading ? 'Generating...' : 'Generate Question'}
           </button>
+        </div>
+        <div style={{ textAlign: 'right', marginTop: '8px', fontSize: '12px', color: '#64748b', fontWeight: '500' }}>
+          ⚠️ Your API key is securely used only for generation.
         </div>
       </div>
 

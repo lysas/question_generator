@@ -28,6 +28,7 @@ class SupabaseWriter:
                 columns = list(processed_data.keys())
                 placeholders = ','.join(['%s'] * len(columns))
                 query = f"INSERT INTO public.questions ({','.join(columns)}) VALUES ({placeholders})"
+                cur.execute(query, tuple(processed_data.values()))
             conn.commit()
             return {"status": "success"}
         except Exception as e:

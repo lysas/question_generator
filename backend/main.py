@@ -396,6 +396,10 @@ def get_ai_provider_and_key(
     x_selected_provider: Optional[str] = None,
     x_selected_api_key: Optional[str] = None
 ):
+    """
+    Resolve AI provider and API key from user-supplied headers ONLY.
+    No server-side fallback keys are used — users MUST provide their own key.
+    """
     prov = (x_selected_provider or "").lower().strip()
     if prov == "groq":
         prov = "grok"
@@ -409,64 +413,40 @@ def get_ai_provider_and_key(
         cleaned = k.strip()
         if cleaned in ("", "null", "undefined"):
             return False
-        if cleaned.startswith("****************") or cleaned.startswith("sk-proj-...") or cleaned.startswith("AIzaSy..."):
+        if cleaned == "****************" or cleaned == "sk-proj-..." or cleaned == "AIzaSy...":
             return False
         if len(cleaned) < 10:
             return False
         return True
 
+    # 1. If provider is explicitly selected and user provided a key, use it
+    if prov and is_actual_key(user_key):
+        return prov, user_key
+
+    # 2. If provider is selected but no selected key, check the per-provider header
     if prov:
-        if is_actual_key(user_key):
-            return prov, user_key
-            
-        if prov == "gemini":
-            env_key = (x_gemini_key or os.getenv("GEMINI_API_KEY") or "").strip()
-            if is_actual_key(env_key):
-                return "gemini", env_key
-        elif prov == "openai":
-            env_key = (x_openai_key or os.getenv("OPENAI_API_KEY") or "").strip()
-            if is_actual_key(env_key):
-                return "openai", env_key
-        elif prov in ("grok", "groq"):
-            env_key = (x_grok_key or os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY") or "").strip()
-            if is_actual_key(env_key):
-                return "grok", env_key
-        elif prov == "mistral":
-            env_key = (x_mistral_key or os.getenv("MISTRAL_API_KEY") or "").strip()
-            if is_actual_key(env_key):
-                return "mistral", env_key
+        header_map = {
+            "gemini": x_gemini_key,
+            "openai": x_openai_key,
+            "grok": x_grok_key,
+            "groq": x_grok_key,
+            "mistral": x_mistral_key,
+        }
+        header_val = header_map.get(prov)
+        if is_actual_key(header_val):
+            return prov, header_val.strip()
 
-        env_gemini = os.getenv("GEMINI_API_KEY")
-        if is_actual_key(env_gemini):
-            return "gemini", env_gemini.strip()
-
-        env_openai = os.getenv("OPENAI_API_KEY")
-        if is_actual_key(env_openai):
-            return "openai", env_openai.strip()
-
-        env_grok = os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY")
-        if is_actual_key(env_grok):
-            return "grok", env_grok.strip()
-
-        env_mistral = os.getenv("MISTRAL_API_KEY")
-        if is_actual_key(env_mistral):
-            return "mistral", env_mistral.strip()
-
-    for provider_name, header_val, env_var in [
-        ("gemini", x_gemini_key, "GEMINI_API_KEY"),
-        ("openai", x_openai_key, "OPENAI_API_KEY"),
-        ("grok", x_grok_key, "GROK_API_KEY"),
-        ("mistral", x_mistral_key, "MISTRAL_API_KEY")
+    # 3. No explicit provider — check each header for a user-supplied key
+    for provider_name, header_val in [
+        ("gemini", x_gemini_key),
+        ("openai", x_openai_key),
+        ("grok", x_grok_key),
+        ("mistral", x_mistral_key),
     ]:
         if is_actual_key(header_val):
             return provider_name, header_val.strip()
-        env_val = os.getenv(env_var) if env_var != "GROK_API_KEY" else (os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY"))
-        if is_actual_key(env_val):
-            return provider_name, env_val.strip()
 
-    if user_key:
-        return prov, user_key
-
+    # 4. No valid user key found — caller will raise HTTPException
     return None, None
 
 
@@ -609,7 +589,7 @@ async def query_with_pdf(
     if not provider:
         raise HTTPException(
             status_code=400,
-            detail="No API keys configured. Please enter your API key in Settings.",
+            detail="API key is required. Please provide your API key.",
         )
 
     # 1. Read files and extract text (documents, images, audio, and video can be mixed)
@@ -1098,7 +1078,7 @@ async def generate_question(
     else:
         raise HTTPException(
             status_code=400,
-            detail="No API keys configured. Please enter your API key in Settings."
+            detail="API key is required. Please provide your API key."
         )
 
     # Guard: empty response
@@ -1307,7 +1287,7 @@ async def generate_grade_questions(
     else:
         raise HTTPException(
             status_code=400, 
-            detail="No API keys configured. Please enter your API key in Settings."
+            detail="API key is required. Please provide your API key."
         )
 
     try:
@@ -1331,7 +1311,8 @@ async def generate_grade_questions(
 
 
 @app.get("/api/auth/resolve-email")
-async def resolve_email(name: str):
+@limiter.limit("5/minute")
+async def resolve_email(request: Request, name: str):
     import psycopg2
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
@@ -1340,8 +1321,9 @@ async def resolve_email(name: str):
     try:
         conn = psycopg2.connect(db_url)
         with conn.cursor() as cur:
+            # Enforce exact case-insensitive matching to prevent partial matching / bulk Harvesting
             cur.execute(
-                "SELECT email FROM auth.users WHERE raw_user_meta_data->>'name' ILIKE %s OR raw_user_meta_data->>'display_name' ILIKE %s OR email ILIKE %s LIMIT 1",
+                "SELECT email FROM auth.users WHERE LOWER(raw_user_meta_data->>'name') = LOWER(%s) OR LOWER(raw_user_meta_data->>'display_name') = LOWER(%s) OR LOWER(email) = LOWER(%s) LIMIT 1",
                 (name, name, name)
             )
             row = cur.fetchone()

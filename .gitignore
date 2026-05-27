@@ -35,6 +35,11 @@ wheels/
 .env.test.local
 .env.production.local
 
+# Electron build artifacts
+dist-electron/
+dev-dist/
+*.zip
+
 # System & IDE files
 .DS_Store
 Thumbs.db
