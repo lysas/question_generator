@@ -651,9 +651,10 @@ async def query_with_pdf(
 
     # Process common OpenAI-like parameters
     openai_params = {
-        "temperature": x_model_temperature if x_model_temperature is not None else 0.2,
+        "temperature": x_model_temperature if x_model_temperature is not None else 0.0,
         "max_tokens": safe_max_output,
-        "top_p": x_model_top_p
+        "top_p": x_model_top_p,
+        "seed": 42
     }
     # Only add stop if it's a non-empty string
     if x_model_stop and isinstance(x_model_stop, str) and x_model_stop.strip():
@@ -985,9 +986,10 @@ async def generate_question(
 
     # Process common OpenAI-like parameters
     openai_params = {
-        "temperature": x_model_temperature if x_model_temperature is not None else 0.2,
+        "temperature": x_model_temperature if x_model_temperature is not None else 0.0,
         "max_tokens": safe_max_output,
-        "top_p": x_model_top_p
+        "top_p": x_model_top_p,
+        "seed": 42
     }
     # Only add stop if it's a non-empty string
     if x_model_stop and isinstance(x_model_stop, str) and x_model_stop.strip():
