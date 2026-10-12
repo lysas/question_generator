@@ -21,6 +21,7 @@ from auth import verify_token
 from fastapi.middleware.cors import CORSMiddleware
 import PyPDF2
 import openai
+import google.generativeai as genai
 from llm_client import GeminiGradingClient
 
 # Setup logging
@@ -196,6 +197,15 @@ def _guess_image_mime(filename: str, content_type: Optional[str]) -> str:
     return "image/jpeg"
 
 
+def normalize_gemini_model(model_name: Optional[str]) -> str:
+    if not model_name:
+        return "gemini-3.8-flash"
+    m = model_name.strip()
+    if m in ("gemini-2.5-flash", "models/gemini-2.5-flash"):
+        return "gemini-3.8-flash"
+    return m
+
+
 def extract_text_from_image(
     image_bytes: bytes,
     mime_type: str,
@@ -209,7 +219,7 @@ def extract_text_from_image(
     )
     if provider == "gemini":
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel("gemini-3.8-flash")
         response = model.generate_content(
             [prompt, {"mime_type": mime_type, "data": image_bytes}]
         )
@@ -298,7 +308,7 @@ def transcribe_audio(
     mime = _guess_audio_mime(filename, content_type)
     if provider == "gemini":
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel("gemini-3.8-flash")
         response = model.generate_content(
             [
                 "Transcribe all spoken words in this audio. Return plain transcript text only.",
@@ -324,7 +334,7 @@ def extract_from_video(
 ) -> str:
     if provider == "gemini":
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel("gemini-3.8-flash")
         mime = _guess_video_mime(filename, content_type)
         response = model.generate_content(
             [
@@ -666,7 +676,7 @@ async def query_with_pdf(
     if provider == "gemini":
         provider_used = "gemini"
         try:
-            model_name = x_selected_model if x_selected_model else "gemini-flash-lite-latest"
+            model_name = normalize_gemini_model(x_selected_model)
             client = GeminiGradingClient(api_key=api_key, model_name=model_name)
             
             gemini_kwargs = {
@@ -1001,7 +1011,7 @@ async def generate_question(
     if provider == "gemini":
         provider_used = "gemini"
         try:
-            model_name = x_selected_model if x_selected_model else "gemini-flash-lite-latest"
+            model_name = normalize_gemini_model(x_selected_model)
             client = GeminiGradingClient(api_key=api_key, model_name=model_name)
             
             gemini_kwargs = {

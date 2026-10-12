@@ -2006,6 +2006,10 @@ const Register = ({ setAuth }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (password.length < 6) {
+      setErrorMessage("Password should be at least 6 characters long.");
+      return;
+    }
     if (name && email && password && agreedToTerms) {
       setErrorMessage("");
       setLoadingRegister(true);
@@ -2137,8 +2141,9 @@ const Register = ({ setAuth }) => {
               <input 
                 type={showPassword ? "text" : "password"} 
                 required 
+                minLength={6}
                 className="auth-input-field" 
-                placeholder="Password"
+                placeholder="Password (min. 6 characters)"
                 value={password} 
                 onChange={e => setPassword(e.target.value)} 
               />

@@ -204,13 +204,13 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
 
   // ── Model Settings State ──
   const MODEL_OPTIONS = {
-    Gemini: ["gemini-2.5-flash", "gemini-flash-lite-latest", "gemini-2.5-pro", "gemini-3-flash-preview"],
+    Gemini: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-flash-lite-latest", "gemini-3-flash-preview"],
     OpenAI: ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
     Groq:   ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
     Mistral:["mistral-large-latest", "mistral-small-latest", "open-mixtral-8x22b"],
   };
   const [msOrganization, setMsOrganization] = useState("Gemini");
-  const [msModel, setMsModel] = useState("gemini-2.5-flash");
+  const [msModel, setMsModel] = useState("gemini-3.8-flash");
   const [msTemperature, setMsTemperature] = useState(1);
   const [msStopSequence, setMsStopSequence] = useState("");
   const [msMaxOutput, setMsMaxOutput] = useState(1000);
@@ -219,6 +219,13 @@ const QuestionWhiz = ({ onUseQuestion, queueLength, user }) => {
   const [msTopP, setMsTopP] = useState(0.95);
   const [msOutputLength, setMsOutputLength] = useState(1000);
   const [msApiKey, setMsApiKey] = useState("");
+
+  // Automatically migrate deprecated model names
+  React.useEffect(() => {
+    if (msModel === "gemini-2.5-flash") {
+      setMsModel("gemini-3.8-flash");
+    }
+  }, [msModel]);
 
   // Load API Key when organization changes
   useLayoutEffect(() => {

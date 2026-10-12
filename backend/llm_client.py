@@ -75,6 +75,8 @@ class GeminiGradingClient:
             raise ValueError("GEMINI_API_KEY not provided and not found in .env")
         
         self.client = genai.Client(api_key=actual_api_key)
+        if model_name in ("gemini-2.5-flash", "models/gemini-2.5-flash"):
+            model_name = "gemini-3.8-flash"
         self.model_name = model_name
         self.max_retries = max_retries
         
@@ -101,6 +103,16 @@ class GeminiGradingClient:
         # All prices are per 1,000,000 tokens
         self.pricing_data = {
             # Standard Interactive Rates
+            "gemini-3.8-flash": {
+                "input_1m": 0.30,
+                "input_1m_audio": 1.00,
+                "output_1m": 2.50
+            },
+            "gemini-3.7-flash": {
+                "input_1m": 0.30,
+                "input_1m_audio": 1.00,
+                "output_1m": 2.50
+            },
             "gemini-flash-lite-latest": {
                 "input_1m": 0.075,
                 "output_1m": 0.30
